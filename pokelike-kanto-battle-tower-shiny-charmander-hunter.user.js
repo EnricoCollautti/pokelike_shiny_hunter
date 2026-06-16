@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Kanto Battle Tower Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.1.1
+// @version      1.2.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Kanto Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.1.1";
+  const SCRIPT_VERSION = "1.2.0";
 
   const STATES = {
     IDLE: "IDLE",
@@ -56,6 +56,35 @@
     dryRun: false,
     autoResume: false
   };
+
+  const POKEMON_NAME_OPTIONS = [
+    "Bulbasaur", "Ivysaur", "Venusaur", "Charmander", "Charmeleon", "Charizard",
+    "Squirtle", "Wartortle", "Blastoise", "Caterpie", "Metapod", "Butterfree",
+    "Weedle", "Kakuna", "Beedrill", "Pidgey", "Pidgeotto", "Pidgeot",
+    "Rattata", "Raticate", "Spearow", "Fearow", "Ekans", "Arbok",
+    "Pikachu", "Raichu", "Sandshrew", "Sandslash", "Nidoran F", "Nidorina",
+    "Nidoqueen", "Nidoran M", "Nidorino", "Nidoking", "Clefairy", "Clefable",
+    "Vulpix", "Ninetales", "Jigglypuff", "Wigglytuff", "Zubat", "Golbat",
+    "Oddish", "Gloom", "Vileplume", "Paras", "Parasect", "Venonat",
+    "Venomoth", "Diglett", "Dugtrio", "Meowth", "Persian", "Psyduck",
+    "Golduck", "Mankey", "Primeape", "Growlithe", "Arcanine", "Poliwag",
+    "Poliwhirl", "Poliwrath", "Abra", "Kadabra", "Alakazam", "Machop",
+    "Machoke", "Machamp", "Bellsprout", "Weepinbell", "Victreebel", "Tentacool",
+    "Tentacruel", "Geodude", "Graveler", "Golem", "Ponyta", "Rapidash",
+    "Slowpoke", "Slowbro", "Magnemite", "Magneton", "Farfetch'd", "Doduo",
+    "Dodrio", "Seel", "Dewgong", "Grimer", "Muk", "Shellder",
+    "Cloyster", "Gastly", "Haunter", "Gengar", "Onix", "Drowzee",
+    "Hypno", "Krabby", "Kingler", "Voltorb", "Electrode", "Exeggcute",
+    "Exeggutor", "Cubone", "Marowak", "Hitmonlee", "Hitmonchan", "Lickitung",
+    "Koffing", "Weezing", "Rhyhorn", "Rhydon", "Chansey", "Tangela",
+    "Kangaskhan", "Horsea", "Seadra", "Goldeen", "Seaking", "Staryu",
+    "Starmie", "Mr. Mime", "Scyther", "Jynx", "Electabuzz", "Magmar",
+    "Pinsir", "Tauros", "Magikarp", "Gyarados", "Lapras", "Ditto",
+    "Eevee", "Vaporeon", "Jolteon", "Flareon", "Porygon", "Omanyte",
+    "Omastar", "Kabuto", "Kabutops", "Aerodactyl", "Snorlax", "Articuno",
+    "Zapdos", "Moltres", "Dratini", "Dragonair", "Dragonite", "Mewtwo",
+    "Mew"
+  ];
 
   const SELECTORS = {
     pokemonCards: [
@@ -269,6 +298,19 @@
         border-color: #38bdf8;
         box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
         font-weight: 700;
+        display: grid;
+        gap: 2px;
+        min-width: 48px;
+        padding: 5px 8px;
+        text-align: center;
+        line-height: 1.05;
+      }
+      #${OVERLAY_ID} .pkh-restore-main {
+        font-size: 11px;
+      }
+      #${OVERLAY_ID} .pkh-restore-sub {
+        font-size: 10px;
+        color: #7dd3fc;
       }
       #${OVERLAY_ID} * {
         box-sizing: border-box;
@@ -399,7 +441,7 @@
     overlay.dataset.hidden = String(runtime.overlayHidden);
     overlay.innerHTML = `
       <div class="pkh-restore">
-        <button type="button" data-action="show">Shiny Hunter - Show</button>
+        <button type="button" data-action="show"><span class="pkh-restore-main">bot</span><span class="pkh-restore-sub">show</span></button>
       </div>
       <div class="pkh-head">
         <div class="pkh-title">Shiny Hunter - v${escapeHtml(SCRIPT_VERSION)}</div>
@@ -423,8 +465,8 @@
           <div class="pkh-label">Starter</div><div class="pkh-value" data-field="starter">Magnemite</div>
         </div>
         <div class="pkh-row">
-          <label>Target <input type="text" maxlength="32" data-setting="targetPokemon" placeholder="Charmander"></label>
-          <label>Starter <input type="text" maxlength="32" data-setting="starterPokemon" placeholder="Magnemite"></label>
+          <label>Target <input type="text" maxlength="32" list="pkh-pokemon-options" data-setting="targetPokemon" placeholder="Charmander"></label>
+          <label>Starter <input type="text" maxlength="32" list="pkh-pokemon-options" data-setting="starterPokemon" placeholder="Magnemite"></label>
         </div>
         <div class="pkh-row">
           <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
@@ -439,6 +481,9 @@
         <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
         <div class="pkh-label">Escape stops immediately. Insert toggles this panel.</div>
         <div class="pkh-log" data-field="log"></div>
+        <datalist id="pkh-pokemon-options">
+          ${POKEMON_NAME_OPTIONS.map((name) => `<option value="${escapeHtml(name)}"></option>`).join("")}
+        </datalist>
       </div>
     `;
 
