@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Pokelike Kanto Battle Tower Shiny Hunter
+// @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
 // @version      1.2.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Kanto Battle Tower
@@ -1916,7 +1916,7 @@
 
   function buildDebugLog() {
     const payload = {
-      script: "Pokelike Kanto Battle Tower Shiny Hunter",
+      script: "Pokelike Shiny Hunter",
       version: SCRIPT_VERSION,
       url: location.href,
       userAgent: navigator.userAgent,

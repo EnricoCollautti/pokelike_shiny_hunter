@@ -16,7 +16,7 @@ Use only in your own browser and respect the game creator's rules.
 2. Open the Tampermonkey dashboard.
 3. Click `Create a new script`.
 4. Replace the default contents with:
-   `pokelike-kanto-battle-tower-shiny-charmander-hunter.user.js`
+   `pokelike-shiny-hunter.user.js`
 5. Save the script.
 6. Open `https://pokelike.xyz/`.
 
