@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Kanto Battle Tower Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.1.0
+// @version      1.1.1
 // @description  Local UI automation helper for shiny hunting in Pokelike Kanto Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.1.0";
+  const SCRIPT_VERSION = "1.1.1";
 
   const STATES = {
     IDLE: "IDLE",
@@ -118,6 +118,7 @@
     lastMessage: "",
     lastScreen: "",
     foundCard: null,
+    foundMessage: "",
     stopReason: "",
     loopToken: 0,
     overlayHidden: readBool("overlayHidden", false),
@@ -246,7 +247,28 @@
         line-height: 1.35;
       }
       #${OVERLAY_ID}[data-hidden="true"] {
+        width: auto;
+        max-height: none;
+        overflow: visible;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+      #${OVERLAY_ID}[data-hidden="true"] .pkh-head,
+      #${OVERLAY_ID}[data-hidden="true"] .pkh-body {
         display: none;
+      }
+      #${OVERLAY_ID} .pkh-restore {
+        display: none;
+      }
+      #${OVERLAY_ID}[data-hidden="true"] .pkh-restore {
+        display: block;
+      }
+      #${OVERLAY_ID} .pkh-restore button {
+        background: #0f172a;
+        border-color: #38bdf8;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+        font-weight: 700;
       }
       #${OVERLAY_ID} * {
         box-sizing: border-box;
@@ -376,6 +398,9 @@
     overlay.setAttribute("aria-label", "Pokelike Shiny Hunter");
     overlay.dataset.hidden = String(runtime.overlayHidden);
     overlay.innerHTML = `
+      <div class="pkh-restore">
+        <button type="button" data-action="show">Shiny Hunter - Show</button>
+      </div>
       <div class="pkh-head">
         <div class="pkh-title">Shiny Hunter - v${escapeHtml(SCRIPT_VERSION)}</div>
         <button type="button" data-action="hide">Hide</button>
@@ -438,6 +463,7 @@
       if (action === "pause") togglePause();
       if (action === "stop") stopBot("Stopped by overlay button.", STATES.STOPPED);
       if (action === "hide") toggleOverlayVisibility();
+      if (action === "show") toggleOverlayVisibility(false);
       if (action === "copylog") copyDebugLog();
     });
 
@@ -484,7 +510,7 @@
     if (overlayFields.starter) overlayFields.starter.textContent = settings.starterPokemon;
     if (overlayFields.log) overlayFields.log.textContent = runtime.logs.slice(-12).join("\n");
     if (overlayFields.found) overlayFields.found.dataset.show = String(runtime.state === STATES.FOUND);
-    if (overlayFields.found) overlayFields.found.textContent = `Shiny ${settings.targetPokemon} found!`;
+    if (overlayFields.found) overlayFields.found.textContent = runtime.foundMessage || `Shiny ${settings.targetPokemon} found!`;
 
     if (overlay) {
       overlay.querySelectorAll("[data-setting]").forEach((input) => {
@@ -496,8 +522,8 @@
     }
   }
 
-  function toggleOverlayVisibility() {
-    runtime.overlayHidden = !runtime.overlayHidden;
+  function toggleOverlayVisibility(forceHidden) {
+    runtime.overlayHidden = typeof forceHidden === "boolean" ? forceHidden : !runtime.overlayHidden;
     writeStorage("overlayHidden", runtime.overlayHidden);
     updateOverlay();
   }
@@ -1348,7 +1374,7 @@
       log("Auto catch disabled; leaving shiny card selected only by highlight.");
     }
 
-    announceFound(`Shiny ${settings.targetPokemon} found!`);
+    announceFound(`Shiny ${settings.targetPokemon} found in ${runtime.attempts} attempts!`);
   }
 
   function highlightCard(card) {
@@ -1361,6 +1387,9 @@
   function announceFound(message) {
     runtime.running = false;
     runtime.paused = false;
+    runtime.foundMessage = message;
+    runtime.attempts = 0;
+    persistAttempts();
     setState(STATES.FOUND, message);
     playFoundSound();
     updateOverlay();
@@ -1409,6 +1438,7 @@
     runtime.stopReason = "";
     runtime.consecutiveErrors = 0;
     runtime.foundCard = null;
+    runtime.foundMessage = "";
     runtime.loopToken += 1;
     setState(STATES.ENTER_MAIN_MENU, "Started.");
     runLoop(runtime.loopToken);
@@ -1695,7 +1725,7 @@
     if (result.kind === "non-target-shiny") {
       if (settings.stopOnAnyShiny) {
         highlightCard(result.card);
-        announceFound(`Shiny ${result.name} found.`);
+        announceFound(`Shiny ${result.name} found in ${runtime.attempts} attempts.`);
         return;
       }
       log(`A Shiny! Too bad it's not ${settings.targetPokemon} :(`);

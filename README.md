@@ -28,7 +28,7 @@ You should see a floating panel named `Shiny Hunter - v...`.
 2. Click `Start` in the bot panel.
 3. Choose the target Pokemon and starter in the bot panel.
 4. The bot enters Battle Tower, selects Kanto, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
-5. If a shiny version of your target appears, the bot stops and alerts you.
+5. If a shiny version of your target appears, the bot stops and alerts you with the attempt count.
 6. If the shiny target does not appear, the bot resets/rerolls and repeats.
 
 Defaults:
@@ -52,6 +52,8 @@ A Shiny! Too bad it's not <Target> :(
 - `Pause`: pauses or resumes the bot.
 - `Stop`: stops the bot.
 - `Escape`: emergency stop.
+- `Hide`: collapses the overlay to a small `Shiny Hunter - Show` button.
+- `Shiny Hunter - Show`: restores the overlay after hiding it.
 - `Insert`: hide or show the overlay.
 - `Copy log`: copies a debug log if something breaks.
 
@@ -67,6 +69,8 @@ A Shiny! Too bad it's not <Target> :(
 - `Auto resume after reload`: starts automatically when the Pokelike page loads.
 
 The target and starter are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG.targetPokemon` and `CONFIG.starterPokemon`.
+
+When a shiny target is found, the alert says how many attempts it took. The saved attempt counter is then reset to `0` for the next hunt.
 
 ## Safety Notes
 
