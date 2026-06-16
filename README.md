@@ -1,6 +1,6 @@
-# Pokelike Charmander Hunter
+# Pokelike Shiny Hunter
 
-Local Tampermonkey userscript for automating a Kanto Battle Tower shiny Charmander hunt on:
+Local Tampermonkey userscript for automating a Kanto Battle Tower shiny hunt on:
 
 ```text
 https://pokelike.xyz/*
@@ -20,22 +20,30 @@ Use only in your own browser and respect the game creator's rules.
 5. Save the script.
 6. Open `https://pokelike.xyz/`.
 
-You should see a floating panel named `Charmander Hunter - v...`.
+You should see a floating panel named `Shiny Hunter - v...`.
 
 ## Usage
 
 1. Open Pokelike.
 2. Click `Start` in the bot panel.
-3. The bot enters Battle Tower, selects Kanto, selects Magnemite, opens the first pokeball catch node, and checks the Pokemon choices.
-4. If shiny Charmander appears, the bot stops and alerts you.
-5. If shiny Charmander does not appear, the bot resets/rerolls and repeats.
+3. Choose the target Pokemon and starter in the bot panel.
+4. The bot enters Battle Tower, selects Kanto, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
+5. If a shiny version of your target appears, the bot stops and alerts you.
+6. If the shiny target does not appear, the bot resets/rerolls and repeats.
+
+Defaults:
+
+```text
+Target: Charmander
+Starter: Magnemite
+```
 
 The small log shows only:
 
 ```text
 No target
-Charmander! Too bad it's not shiny! :(
-A Shiny! Too bad it's not Charmander :(
+<Target>! Too bad it's not shiny! :(
+A Shiny! Too bad it's not <Target> :(
 ```
 
 ## Controls
@@ -49,12 +57,16 @@ A Shiny! Too bad it's not Charmander :(
 
 ## Settings
 
+- `Target`: Pokemon to shiny hunt, for example `Charmander`.
+- `Starter`: Battle Tower starter to select, for example `Magnemite`.
 - `Min delay` / `Max delay`: random wait between major actions, in milliseconds.
 - `Stop after N attempts`: stop after this many checks; `0` means unlimited.
-- `Catch shiny Charmander automatically`: off by default, so you can continue manually after detection.
-- `Stop on any shiny`: stop when any shiny appears, even if it is not Charmander.
+- `Catch shiny target automatically`: off by default, so you can continue manually after detection.
+- `Stop on any shiny`: stop when any shiny appears, even if it is not your target.
 - `Dry run mode`: logs what the bot would do without clicking, pressing keys, resetting, or reloading.
 - `Auto resume after reload`: starts automatically when the Pokelike page loads.
+
+The target and starter are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG.targetPokemon` and `CONFIG.starterPokemon`.
 
 ## Safety Notes
 

@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         Pokelike Kanto Battle Tower Shiny Charmander Hunter
+// @name         Pokelike Kanto Battle Tower Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.0.6
-// @description  Local UI automation helper for shiny hunting Charmander in Pokelike Kanto Battle Tower
+// @version      1.1.0
+// @description  Local UI automation helper for shiny hunting in Pokelike Kanto Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
 // @grant        none
@@ -26,17 +26,17 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.0.6";
+  const SCRIPT_VERSION = "1.1.0";
 
   const STATES = {
     IDLE: "IDLE",
     ENTER_MAIN_MENU: "ENTER_MAIN_MENU",
     ENTER_BATTLE_TOWER: "ENTER_BATTLE_TOWER",
     SELECT_KANTO: "SELECT_KANTO",
-    SELECT_MAGNEMITE: "SELECT_MAGNEMITE",
+    SELECT_STARTER: "SELECT_STARTER",
     OPEN_FIRST_CATCH_NODE: "OPEN_FIRST_CATCH_NODE",
     WAIT_FOR_POKEMON_CHOICES: "WAIT_FOR_POKEMON_CHOICES",
-    CHECK_FOR_SHINY_CHARMANDER: "CHECK_FOR_SHINY_CHARMANDER",
+    CHECK_FOR_SHINY_TARGET: "CHECK_FOR_SHINY_TARGET",
     CATCH_TARGET: "CATCH_TARGET",
     RESET_RUN: "RESET_RUN",
     FOUND: "FOUND",
@@ -100,10 +100,10 @@
     [STATES.ENTER_MAIN_MENU]: 12000,
     [STATES.ENTER_BATTLE_TOWER]: 16000,
     [STATES.SELECT_KANTO]: 22000,
-    [STATES.SELECT_MAGNEMITE]: 16000,
+    [STATES.SELECT_STARTER]: 16000,
     [STATES.OPEN_FIRST_CATCH_NODE]: 25000,
     [STATES.WAIT_FOR_POKEMON_CHOICES]: 18000,
-    [STATES.CHECK_FOR_SHINY_CHARMANDER]: 10000,
+    [STATES.CHECK_FOR_SHINY_TARGET]: 10000,
     [STATES.CATCH_TARGET]: 10000,
     [STATES.RESET_RUN]: 25000
   };
@@ -155,6 +155,23 @@
     }
   }
 
+  function readString(name, fallback) {
+    try {
+      const raw = localStorage.getItem(storageKey(name));
+      return sanitizePokemonName(raw) || fallback;
+    } catch (error) {
+      return fallback;
+    }
+  }
+
+  function sanitizePokemonName(value) {
+    return String(value || "")
+      .replace(/[^A-Za-z0-9 .'-]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 32);
+  }
+
   function writeStorage(name, value) {
     try {
       localStorage.setItem(storageKey(name), String(value));
@@ -165,6 +182,8 @@
 
   function loadSettings() {
     return {
+      targetPokemon: readString("targetPokemon", CONFIG.targetPokemon),
+      starterPokemon: readString("starterPokemon", CONFIG.starterPokemon),
       minDelayMs: readNumber("minDelayMs", CONFIG.minDelayMs, 0, 60000),
       maxDelayMs: readNumber("maxDelayMs", CONFIG.maxDelayMs, 0, 60000),
       stopAfterAttempts: readNumber("stopAfterAttempts", CONFIG.stopAfterAttempts, 0, Number.MAX_SAFE_INTEGER),
@@ -176,12 +195,16 @@
   }
 
   function persistSettings() {
+    settings.targetPokemon = sanitizePokemonName(settings.targetPokemon) || CONFIG.targetPokemon;
+    settings.starterPokemon = sanitizePokemonName(settings.starterPokemon) || CONFIG.starterPokemon;
     const minDelay = Math.max(0, Number(settings.minDelayMs) || CONFIG.minDelayMs);
     const maxDelay = Math.max(0, Number(settings.maxDelayMs) || CONFIG.maxDelayMs);
     settings.minDelayMs = Math.min(minDelay, maxDelay);
     settings.maxDelayMs = Math.max(minDelay, maxDelay);
     settings.stopAfterAttempts = Math.max(0, Math.floor(Number(settings.stopAfterAttempts) || 0));
 
+    writeStorage("targetPokemon", settings.targetPokemon);
+    writeStorage("starterPokemon", settings.starterPokemon);
     writeStorage("minDelayMs", settings.minDelayMs);
     writeStorage("maxDelayMs", settings.maxDelayMs);
     writeStorage("stopAfterAttempts", settings.stopAfterAttempts);
@@ -295,6 +318,15 @@
         padding: 5px 7px;
         font: inherit;
       }
+      #${OVERLAY_ID} input[type="text"] {
+        width: 130px;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        background: #020617;
+        color: #f8fafc;
+        padding: 5px 7px;
+        font: inherit;
+      }
       #${OVERLAY_ID} label {
         display: flex;
         gap: 7px;
@@ -341,16 +373,16 @@
 
     overlay = document.createElement("section");
     overlay.id = OVERLAY_ID;
-    overlay.setAttribute("aria-label", "Pokelike Charmander Hunter");
+    overlay.setAttribute("aria-label", "Pokelike Shiny Hunter");
     overlay.dataset.hidden = String(runtime.overlayHidden);
     overlay.innerHTML = `
       <div class="pkh-head">
-        <div class="pkh-title">Charmander Hunter - v${escapeHtml(SCRIPT_VERSION)}</div>
+        <div class="pkh-title">Shiny Hunter - v${escapeHtml(SCRIPT_VERSION)}</div>
         <button type="button" data-action="hide">Hide</button>
       </div>
       <div class="pkh-body">
         <div class="pkh-disclaimer">${escapeHtml(DISCLAIMER)}</div>
-        <div class="pkh-found" data-field="found">Shiny Charmander found!</div>
+        <div class="pkh-found" data-field="found">Shiny target found!</div>
         <div class="pkh-buttons">
           <button type="button" data-action="start" data-kind="start">Start</button>
           <button type="button" data-action="pause">Pause</button>
@@ -362,8 +394,12 @@
           <div class="pkh-label">State</div><div class="pkh-value" data-field="state">IDLE</div>
           <div class="pkh-label">Screen</div><div class="pkh-value" data-field="screen">unknown</div>
           <div class="pkh-label">Last error</div><div class="pkh-value" data-field="error">none</div>
-          <div class="pkh-label">Target</div><div class="pkh-value">Shiny Charmander</div>
-          <div class="pkh-label">Starter</div><div class="pkh-value">Magnemite</div>
+          <div class="pkh-label">Target</div><div class="pkh-value" data-field="target">Shiny Charmander</div>
+          <div class="pkh-label">Starter</div><div class="pkh-value" data-field="starter">Magnemite</div>
+        </div>
+        <div class="pkh-row">
+          <label>Target <input type="text" maxlength="32" data-setting="targetPokemon" placeholder="Charmander"></label>
+          <label>Starter <input type="text" maxlength="32" data-setting="starterPokemon" placeholder="Magnemite"></label>
         </div>
         <div class="pkh-row">
           <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
@@ -372,7 +408,7 @@
         <div class="pkh-row">
           <label>Stop after N attempts <input type="number" min="0" step="1" data-setting="stopAfterAttempts"></label>
         </div>
-        <label><input type="checkbox" data-setting="autoCatch"> Catch shiny Charmander automatically</label>
+        <label><input type="checkbox" data-setting="autoCatch"> Catch shiny target automatically</label>
         <label><input type="checkbox" data-setting="stopOnAnyShiny"> Stop on any shiny</label>
         <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
         <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
@@ -388,6 +424,8 @@
       state: overlay.querySelector("[data-field='state']"),
       screen: overlay.querySelector("[data-field='screen']"),
       error: overlay.querySelector("[data-field='error']"),
+      target: overlay.querySelector("[data-field='target']"),
+      starter: overlay.querySelector("[data-field='starter']"),
       log: overlay.querySelector("[data-field='log']"),
       found: overlay.querySelector("[data-field='found']")
     };
@@ -413,6 +451,9 @@
       input.addEventListener("change", () => {
         if (input.type === "checkbox") {
           settings[name] = input.checked;
+        } else if (input.type === "text") {
+          settings[name] = sanitizePokemonName(input.value);
+          input.value = settings[name];
         } else {
           settings[name] = Number(input.value);
         }
@@ -439,8 +480,11 @@
     if (overlayFields.state) overlayFields.state.textContent = runtime.paused ? `${runtime.state} (paused)` : runtime.state;
     if (overlayFields.screen) overlayFields.screen.textContent = runtime.lastScreen || "unknown";
     if (overlayFields.error) overlayFields.error.textContent = runtime.lastError || "none";
+    if (overlayFields.target) overlayFields.target.textContent = `Shiny ${settings.targetPokemon}`;
+    if (overlayFields.starter) overlayFields.starter.textContent = settings.starterPokemon;
     if (overlayFields.log) overlayFields.log.textContent = runtime.logs.slice(-12).join("\n");
     if (overlayFields.found) overlayFields.found.dataset.show = String(runtime.state === STATES.FOUND);
+    if (overlayFields.found) overlayFields.found.textContent = `Shiny ${settings.targetPokemon} found!`;
 
     if (overlay) {
       overlay.querySelectorAll("[data-setting]").forEach((input) => {
@@ -921,7 +965,7 @@
     if (screen === "title-screen") return STATES.ENTER_BATTLE_TOWER;
     if (screen === "history-region-select") return STATES.ENTER_BATTLE_TOWER;
     if (screen === "endless-stage-select") return STATES.SELECT_KANTO;
-    if (screen === "starter-screen") return STATES.SELECT_MAGNEMITE;
+    if (screen === "starter-screen") return STATES.SELECT_STARTER;
     if (screen === "map-screen") return STATES.OPEN_FIRST_CATCH_NODE;
     if (screen === "catch-screen") return STATES.WAIT_FOR_POKEMON_CHOICES;
     if (screen === "gameover-screen" || screen === "win-screen" || screen === "endless-stage-complete") return STATES.RESET_RUN;
@@ -1192,17 +1236,18 @@
   // Bot actions
   // ---------------------------------------------------------------------------
 
-  async function selectStarterMagnemite() {
+  async function selectConfiguredStarter() {
+    const starterPokemon = settings.starterPokemon;
     const card = await waitForCondition(() => {
       const starterRoot = document.querySelector("#starter-choices") || document.querySelector("#starter-screen") || document;
-      return findPokemonCardInCards(getAllPokemonCards(starterRoot), CONFIG.starterPokemon, false);
-    }, 7000, 250, "Magnemite starter card");
+      return findPokemonCardInCards(getAllPokemonCards(starterRoot), starterPokemon, false);
+    }, 7000, 250, `${starterPokemon} starter card`);
 
     if (!card) {
-      throw new Error("Magnemite not available as a Battle Tower starter. Make sure it is unlocked or caught.");
+      throw new Error(`${starterPokemon} not available as a Battle Tower starter. Make sure it is unlocked or caught.`);
     }
 
-    return safeClick(getClickableCardElement(card), `starter ${CONFIG.starterPokemon}`);
+    return safeClick(getClickableCardElement(card), `starter ${starterPokemon}`);
   }
 
   async function openFirstCatchNode() {
@@ -1267,12 +1312,13 @@
 
   async function inspectChoicesForTarget() {
     const cards = getVisibleChoiceCards();
+    const targetPokemon = settings.targetPokemon;
     if (settings.dryRun) logChoiceCards();
 
-    const target = findPokemonCardInCards(cards, CONFIG.targetPokemon, true);
+    const target = findPokemonCardInCards(cards, targetPokemon, true);
     if (target) {
       runtime.foundCard = target;
-      return { kind: "target", card: target, name: CONFIG.targetPokemon };
+      return { kind: "target", card: target, name: targetPokemon };
     }
 
     const anyShiny = findAnyShinyCard(cards);
@@ -1281,9 +1327,9 @@
       return { kind: "non-target-shiny", card: anyShiny, name: getPokemonName(anyShiny) || "unknown Pokemon" };
     }
 
-    const normalTarget = findPokemonCardInCards(cards, CONFIG.targetPokemon, false);
+    const normalTarget = findPokemonCardInCards(cards, targetPokemon, false);
     if (normalTarget) {
-      return { kind: "normal-target", card: normalTarget, name: CONFIG.targetPokemon };
+      return { kind: "normal-target", card: normalTarget, name: targetPokemon };
     }
 
     return { kind: "none" };
@@ -1296,13 +1342,13 @@
     highlightCard(card);
 
     if (settings.autoCatch) {
-      safeClick(getClickableCardElement(card), `shiny ${CONFIG.targetPokemon}`);
+      safeClick(getClickableCardElement(card), `shiny ${settings.targetPokemon}`);
       await sleep(400);
     } else {
       log("Auto catch disabled; leaving shiny card selected only by highlight.");
     }
 
-    announceFound(`Shiny ${CONFIG.targetPokemon} found!`);
+    announceFound(`Shiny ${settings.targetPokemon} found!`);
   }
 
   function highlightCard(card) {
@@ -1446,8 +1492,8 @@
       return;
     }
 
-    if (state === STATES.SELECT_MAGNEMITE) {
-      await selectMagnemiteState();
+    if (state === STATES.SELECT_STARTER) {
+      await selectStarterState();
       return;
     }
 
@@ -1461,8 +1507,8 @@
       return;
     }
 
-    if (state === STATES.CHECK_FOR_SHINY_CHARMANDER) {
-      await checkForShinyCharmanderState();
+    if (state === STATES.CHECK_FOR_SHINY_TARGET) {
+      await checkForShinyTargetState();
       return;
     }
 
@@ -1573,7 +1619,7 @@
     setState(stateForCurrentScreen(), "Kanto selected.");
   }
 
-  async function selectMagnemiteState() {
+  async function selectStarterState() {
     const screen = detectCurrentScreen();
     if (screen === "map-screen" || screen === "catch-screen") {
       setState(stateForCurrentScreen(), "Starter already selected.");
@@ -1588,12 +1634,12 @@
       return;
     }
 
-    await selectStarterMagnemite();
+    await selectConfiguredStarter();
     await waitForCondition(() => {
       const next = detectCurrentScreen();
       return next === "map-screen" || next === "catch-screen";
     }, 9000, 250, "map after starter");
-    setState(stateForCurrentScreen(), `${CONFIG.starterPokemon} selected.`);
+    setState(stateForCurrentScreen(), `${settings.starterPokemon} selected.`);
   }
 
   async function openFirstCatchNodeState() {
@@ -1632,17 +1678,17 @@
       throw new Error("Pokemon choice cards were not visible.");
     }
 
-    setState(STATES.CHECK_FOR_SHINY_CHARMANDER, "Pokemon choices visible.");
+    setState(STATES.CHECK_FOR_SHINY_TARGET, "Pokemon choices visible.");
   }
 
-  async function checkForShinyCharmanderState() {
+  async function checkForShinyTargetState() {
     runtime.attempts += 1;
     persistAttempts();
     updateOverlay();
 
     const result = await inspectChoicesForTarget();
     if (result.kind === "target") {
-      setState(STATES.CATCH_TARGET, `Shiny ${CONFIG.targetPokemon} detected.`);
+      setState(STATES.CATCH_TARGET, `Shiny ${settings.targetPokemon} detected.`);
       return;
     }
 
@@ -1652,9 +1698,9 @@
         announceFound(`Shiny ${result.name} found.`);
         return;
       }
-      log("A Shiny! Too bad it's not Charmander :(");
+      log(`A Shiny! Too bad it's not ${settings.targetPokemon} :(`);
     } else if (result.kind === "normal-target") {
-      log("Charmander! Too bad it's not shiny! :(");
+      log(`${settings.targetPokemon}! Too bad it's not shiny! :(`);
     } else {
       log("No target");
     }
@@ -1701,7 +1747,7 @@
 
     const screen = detectCurrentScreen();
     if (screen === "catch-screen") {
-      setState(STATES.CHECK_FOR_SHINY_CHARMANDER, "Fallback to choice inspection.");
+      setState(STATES.CHECK_FOR_SHINY_TARGET, "Fallback to choice inspection.");
       return;
     }
     if (screen === "map-screen") {
@@ -1709,7 +1755,7 @@
       return;
     }
     if (screen === "starter-screen") {
-      setState(STATES.SELECT_MAGNEMITE, "Fallback to starter selection.");
+      setState(STATES.SELECT_STARTER, "Fallback to starter selection.");
       return;
     }
     if (screen === "endless-stage-select") {
@@ -1789,13 +1835,13 @@
 
   function isOverlayLogMessage(message) {
     return message === "No target"
-      || message === "Charmander! Too bad it's not shiny! :("
-      || message === "A Shiny! Too bad it's not Charmander :(";
+      || message === `${settings.targetPokemon}! Too bad it's not shiny! :(`
+      || message === `A Shiny! Too bad it's not ${settings.targetPokemon} :(`;
   }
 
   function buildDebugLog() {
     const payload = {
-      script: "Pokelike Kanto Battle Tower Shiny Charmander Hunter",
+      script: "Pokelike Kanto Battle Tower Shiny Hunter",
       version: SCRIPT_VERSION,
       url: location.href,
       userAgent: navigator.userAgent,
