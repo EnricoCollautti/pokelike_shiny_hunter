@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.6.0
+// @version      1.6.1
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.6.0";
+  const SCRIPT_VERSION = "1.6.1";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const DEFAULT_PANEL_HEIGHT = 620;
@@ -1180,7 +1180,6 @@
       } catch (error) {
         // Pointer capture can fail in unusual browser states; document listeners still work.
       }
-      event.preventDefault();
     });
 
     overlay.addEventListener("pointermove", (event) => {
@@ -1189,6 +1188,7 @@
       const dx = event.clientX - overlayDrag.startX;
       const dy = event.clientY - overlayDrag.startY;
       if (Math.abs(dx) > 3 || Math.abs(dy) > 3) overlayDrag.moved = true;
+      if (!overlayDrag.moved) return;
 
       const maxLeft = Math.max(0, window.innerWidth - 48);
       const maxTop = Math.max(0, window.innerHeight - 32);
