@@ -13,12 +13,14 @@ Use only in your own browser and respect the game creator's rules.
 ## Install
 
 1. Install the Tampermonkey browser extension.
-2. Open the Tampermonkey dashboard.
-3. Click `Create a new script`.
-4. Replace the default contents with:
+2. If you use Chrome or Edge, follow Tampermonkey's `Permission to execute userscripts` instructions:
+   https://www.tampermonkey.net/faq.php?q=Q209#Q209
+3. Open the Tampermonkey dashboard.
+4. Click `Create a new script`.
+5. Replace the default contents with:
    `pokelike-shiny-hunter.user.js`
-5. Save the script.
-6. Open `https://pokelike.xyz/`.
+6. Save the script.
+7. Open `https://pokelike.xyz/`.
 
 You should see a floating panel named `Shiny Hunter - v...`.
 
