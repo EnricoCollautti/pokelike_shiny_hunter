@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.8
+// @version      1.7.9
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.8";
+  const SCRIPT_VERSION = "1.7.9";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -1840,44 +1840,12 @@
     `;
   }
 
-  function setPickerInputValue(input, value) {
-    if (!input) return;
-    input.value = value;
-    try {
-      input.setSelectionRange(input.value.length, input.value.length);
-    } catch (error) {
-      // Some input states can reject selection changes; value restoration is enough.
-    }
-  }
-
-  function isTypingKey(event) {
-    return event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
-  }
-
-  function rememberPickerQuery(picker, force = false) {
-    const input = picker.querySelector("[data-picker-input]");
-    if (!input) return;
-    if (!force && Object.prototype.hasOwnProperty.call(picker.dataset, "queryValue")) return;
-    picker.dataset.queryValue = input.value;
-  }
-
-  function exitPickerPreviewMode(picker, restoreQuery = false) {
-    const input = picker.querySelector("[data-picker-input]");
-    picker.dataset.previewing = "false";
-    if (restoreQuery) setPickerInputValue(input, picker.dataset.queryValue || "");
-  }
-
-  function showPokemonInPickerPreview(picker, pokemon, options = {}) {
+  function showPokemonInPickerPreview(picker, pokemon) {
     const preview = picker.querySelector("[data-picker-selected]");
     const sprite = picker.querySelector("[data-picker-selected-sprite]");
     const types = picker.querySelector("[data-picker-selected-types]");
-    const input = picker.querySelector("[data-picker-input]");
     if (!preview) return;
     const selectedName = pokemon ? pokemon.name : "";
-    if (options.rememberQuery) rememberPickerQuery(picker);
-    const previewInput = Boolean(options.previewInput && selectedName);
-    picker.dataset.previewing = String(previewInput);
-    if (input && (options.syncInput || previewInput)) setPickerInputValue(input, selectedName);
     if (preview.dataset.pokemon === selectedName) return;
     if (sprite) {
       sprite.hidden = !pokemon;
@@ -1887,10 +1855,10 @@
     preview.dataset.pokemon = selectedName;
   }
 
-  function updatePickerPreviewFromSetting(picker, syncInput = false) {
+  function updatePickerPreviewFromSetting(picker) {
     const settingName = picker.dataset.picker;
     if (!settingName) return;
-    showPokemonInPickerPreview(picker, findPokemonOption(settings[settingName], settings.region), { syncInput });
+    showPokemonInPickerPreview(picker, findPokemonOption(settings[settingName], settings.region));
   }
 
   function updateSelectedPokemonPreviews(force = false) {
@@ -1898,7 +1866,7 @@
     overlay.querySelectorAll("[data-picker]").forEach((picker) => {
       const menu = picker.querySelector("[data-picker-menu]");
       if (!force && menu && menu.dataset.open === "true") return;
-      updatePickerPreviewFromSetting(picker, force);
+      updatePickerPreviewFromSetting(picker);
     });
   }
 
@@ -1921,7 +1889,7 @@
       .filter((pokemon) => normalizeForCompare(pokemon.name).includes(normalized));
   }
 
-  function renderPokemonMenu(picker, previewFirst = true) {
+  function renderPokemonMenu(picker) {
     const input = picker.querySelector("[data-picker-input]");
     const menu = picker.querySelector("[data-picker-menu]");
     if (!input || !menu) return;
@@ -1931,8 +1899,7 @@
       ? options.map(renderPokemonOption).join("")
       : `<div class="pkh-picker-empty">No Pokemon in ${escapeHtml(selectedRegion().label)} matches this filter.</div>`;
     menu.dataset.open = "true";
-    if (options.length && previewFirst) setActivePokemonOption(picker, 0);
-    else if (!options.length && previewFirst) showPokemonInPickerPreview(picker, null, { rememberQuery: true });
+    if (options.length) setActivePokemonOption(picker, 0);
   }
 
   function getPickerOptions(picker) {
@@ -1952,7 +1919,6 @@
       option.dataset.active = String(active);
       option.setAttribute("aria-selected", String(active));
     });
-    showPokemonInPickerPreview(picker, findPokemonOption(options[boundedIndex].dataset.pickerOption, settings.region), { previewInput: true, rememberQuery: true });
     options[boundedIndex].scrollIntoView({ block: "nearest" });
   }
 
@@ -2028,23 +1994,11 @@
     overlay.querySelectorAll("[data-picker]").forEach((picker) => {
       const input = picker.querySelector("[data-picker-input]");
       if (!input) return;
-      input.addEventListener("focus", () => {
-        picker.dataset.queryValue = "";
-        renderPokemonMenu(picker);
-      });
-      input.addEventListener("input", () => {
-        exitPickerPreviewMode(picker);
-        rememberPickerQuery(picker, true);
-        updatePickerPreviewFromSetting(picker);
-        renderPokemonMenu(picker, false);
-      });
+      input.addEventListener("focus", () => renderPokemonMenu(picker));
+      input.addEventListener("input", () => renderPokemonMenu(picker));
       input.addEventListener("keydown", (event) => {
         const menu = picker.querySelector("[data-picker-menu]");
         const menuOpen = menu && menu.dataset.open === "true";
-        if (picker.dataset.previewing === "true" && isTypingKey(event)) {
-          exitPickerPreviewMode(picker, true);
-          return;
-        }
         if (event.key === "ArrowDown") {
           if (!menuOpen) {
             renderPokemonMenu(picker);
