@@ -75,8 +75,8 @@ The panel is split into tabs:
 ## Settings
 
 - `Region`: Battle Tower region to run: `Kanto`, `Johto`, `Hoenn`, `Sinnoh`, or `Unova`.
-- `Target`: Pokemon to shiny hunt, for example `Charmander`. Start typing to filter Pokemon introduced in the selected region.
-- `Starter`: Battle Tower starter to select, for example `Magnemite`. Start typing to filter Pokemon introduced in the selected region.
+- `Target`: Pokemon to shiny hunt, for example `Charmander`. Start typing to filter Pokemon introduced in the selected region. Use arrow keys and `Enter` to select from the list.
+- `Starter`: Battle Tower starter to select, for example `Magnemite`. Start typing to filter Pokemon introduced in the selected region. Use arrow keys and `Enter` to select from the list.
 - `Min delay` / `Max delay`: random wait between major actions, in milliseconds.
 - `Stop after N attempts`: stop after this many checks; `0` means unlimited.
 - `Catch shiny target automatically`: off by default, so you can continue manually after detection.
