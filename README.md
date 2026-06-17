@@ -57,10 +57,12 @@ A Shiny! Too bad it's not <Target> :(
 - `Pause`: pauses or resumes the bot.
 - `Stop`: stops the bot.
 - `Escape`: emergency stop.
-- `Hide`: collapses the overlay to a tiny tab shifted slightly left from the game menu.
+- `Hide`: collapses the overlay to a tiny movable tab shifted left from the game menu.
 - `bot` / `show`: restores the overlay after hiding it.
 - `Insert`: hide or show the overlay.
 - `Copy log`: copies a debug log if something breaks.
+
+You can drag the full panel by its header and resize it from the bottom-right corner. The hidden `bot` / `show` tab can also be dragged and resized. Positions and sizes are saved in the browser under the script's own keys.
 
 The panel is split into tabs:
 

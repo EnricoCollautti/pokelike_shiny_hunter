@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.5.1
+// @version      1.6.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,15 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.5.1";
+  const SCRIPT_VERSION = "1.6.0";
+
+  const DEFAULT_PANEL_WIDTH = 360;
+  const DEFAULT_PANEL_HEIGHT = 620;
+  const DEFAULT_PANEL_TOP = 12;
+  const DEFAULT_PANEL_RIGHT = 12;
+  const DEFAULT_RESTORE_RIGHT = 56;
+  const DEFAULT_RESTORE_WIDTH = 54;
+  const DEFAULT_RESTORE_HEIGHT = 42;
 
   const STATES = {
     IDLE: "IDLE",
@@ -864,6 +872,9 @@
 
   let overlay = null;
   let overlayFields = {};
+  let overlayResizeObserver = null;
+  let overlayDrag = null;
+  let suppressOverlayClickUntil = 0;
 
   function storageKey(name) {
     return `${STORAGE_PREFIX}${name}`;
@@ -1014,6 +1025,192 @@
     runtime.foundMessage = "";
   }
 
+  function clampNumber(value, min, max) {
+    return Math.min(max, Math.max(min, value));
+  }
+
+  function getDefaultPanelLayout() {
+    const width = clampNumber(DEFAULT_PANEL_WIDTH, 320, Math.max(320, window.innerWidth - 24));
+    const height = clampNumber(DEFAULT_PANEL_HEIGHT, 460, Math.max(460, window.innerHeight - 24));
+    return {
+      left: clampNumber(window.innerWidth - width - DEFAULT_PANEL_RIGHT, 8, Math.max(8, window.innerWidth - 80)),
+      top: DEFAULT_PANEL_TOP,
+      width,
+      height
+    };
+  }
+
+  function getDefaultRestoreLayout() {
+    return {
+      left: clampNumber(window.innerWidth - DEFAULT_RESTORE_RIGHT - DEFAULT_RESTORE_WIDTH, 8, Math.max(8, window.innerWidth - DEFAULT_RESTORE_WIDTH)),
+      top: DEFAULT_PANEL_TOP,
+      width: DEFAULT_RESTORE_WIDTH,
+      height: DEFAULT_RESTORE_HEIGHT
+    };
+  }
+
+  function readPanelLayout() {
+    const fallback = getDefaultPanelLayout();
+    const width = readNumber("panelWidth", fallback.width, 320, Math.max(320, window.innerWidth - 8));
+    const height = readNumber("panelHeight", fallback.height, 460, Math.max(460, window.innerHeight - 8));
+    return {
+      left: readNumber("panelLeft", fallback.left, 0, Math.max(0, window.innerWidth - 48)),
+      top: readNumber("panelTop", fallback.top, 0, Math.max(0, window.innerHeight - 48)),
+      width,
+      height
+    };
+  }
+
+  function readRestoreLayout() {
+    const fallback = getDefaultRestoreLayout();
+    return {
+      left: readNumber("restoreLeft", fallback.left, 0, Math.max(0, window.innerWidth - 48)),
+      top: readNumber("restoreTop", fallback.top, 0, Math.max(0, window.innerHeight - 48)),
+      width: readNumber("restoreWidth", fallback.width, 44, 160),
+      height: readNumber("restoreHeight", fallback.height, 34, 120)
+    };
+  }
+
+  function clampPanelLayout(layout) {
+    const width = clampNumber(layout.width, 320, Math.max(320, window.innerWidth - 8));
+    const height = clampNumber(layout.height, 460, Math.max(460, window.innerHeight - 8));
+    return {
+      left: clampNumber(layout.left, 0, Math.max(0, window.innerWidth - 48)),
+      top: clampNumber(layout.top, 0, Math.max(0, window.innerHeight - 48)),
+      width,
+      height
+    };
+  }
+
+  function clampRestoreLayout(layout) {
+    const width = clampNumber(layout.width || DEFAULT_RESTORE_WIDTH, 44, 160);
+    const height = clampNumber(layout.height || DEFAULT_RESTORE_HEIGHT, 34, 120);
+    return {
+      left: clampNumber(layout.left, 0, Math.max(0, window.innerWidth - 48)),
+      top: clampNumber(layout.top, 0, Math.max(0, window.innerHeight - 32)),
+      width,
+      height
+    };
+  }
+
+  function applyOverlayLayout() {
+    if (!overlay) return;
+    if (runtime.overlayHidden) {
+      const layout = clampRestoreLayout(readRestoreLayout());
+      overlay.style.left = `${layout.left}px`;
+      overlay.style.top = `${layout.top}px`;
+      overlay.style.right = "auto";
+      overlay.style.width = `${layout.width}px`;
+      overlay.style.height = `${layout.height}px`;
+      return;
+    }
+
+    const layout = clampPanelLayout(readPanelLayout());
+    overlay.style.left = `${layout.left}px`;
+    overlay.style.top = `${layout.top}px`;
+    overlay.style.right = "auto";
+    overlay.style.width = `${layout.width}px`;
+    overlay.style.height = `${layout.height}px`;
+  }
+
+  function persistPanelLayout() {
+    if (!overlay || runtime.overlayHidden) return;
+    const rect = overlay.getBoundingClientRect();
+    const layout = clampPanelLayout({
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    });
+    writeStorage("panelLeft", Math.round(layout.left));
+    writeStorage("panelTop", Math.round(layout.top));
+    writeStorage("panelWidth", Math.round(layout.width));
+    writeStorage("panelHeight", Math.round(layout.height));
+  }
+
+  function persistRestoreLayout() {
+    if (!overlay || !runtime.overlayHidden) return;
+    const rect = overlay.getBoundingClientRect();
+    const layout = clampRestoreLayout({
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height
+    });
+    writeStorage("restoreLeft", Math.round(layout.left));
+    writeStorage("restoreTop", Math.round(layout.top));
+    writeStorage("restoreWidth", Math.round(layout.width));
+    writeStorage("restoreHeight", Math.round(layout.height));
+  }
+
+  function persistCurrentOverlayLayout() {
+    if (runtime.overlayHidden) persistRestoreLayout();
+    else persistPanelLayout();
+  }
+
+  function setupOverlayResizePersistence() {
+    if (overlayResizeObserver) overlayResizeObserver.disconnect();
+    if (typeof ResizeObserver !== "function") return;
+
+    overlayResizeObserver = new ResizeObserver(() => {
+      if (!overlay || overlayDrag) return;
+      persistCurrentOverlayLayout();
+    });
+    overlayResizeObserver.observe(overlay);
+  }
+
+  function setupOverlayDragging() {
+    overlay.addEventListener("pointerdown", (event) => {
+      const restoreButton = event.target.closest(".pkh-restore button");
+      const header = event.target.closest(".pkh-head");
+      if (!restoreButton && !header) return;
+      if (header && event.target.closest("button")) return;
+
+      const rect = overlay.getBoundingClientRect();
+      overlayDrag = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: rect.left,
+        top: rect.top,
+        moved: false
+      };
+      try {
+        overlay.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Pointer capture can fail in unusual browser states; document listeners still work.
+      }
+      event.preventDefault();
+    });
+
+    overlay.addEventListener("pointermove", (event) => {
+      if (!overlayDrag || overlayDrag.pointerId !== event.pointerId) return;
+
+      const dx = event.clientX - overlayDrag.startX;
+      const dy = event.clientY - overlayDrag.startY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) overlayDrag.moved = true;
+
+      const maxLeft = Math.max(0, window.innerWidth - 48);
+      const maxTop = Math.max(0, window.innerHeight - 32);
+      overlay.style.left = `${clampNumber(overlayDrag.left + dx, 0, maxLeft)}px`;
+      overlay.style.top = `${clampNumber(overlayDrag.top + dy, 0, maxTop)}px`;
+      overlay.style.right = "auto";
+      event.preventDefault();
+    });
+
+    overlay.addEventListener("pointerup", (event) => {
+      if (!overlayDrag || overlayDrag.pointerId !== event.pointerId) return;
+      if (overlayDrag.moved) suppressOverlayClickUntil = Date.now() + 350;
+      overlayDrag = null;
+      persistCurrentOverlayLayout();
+    });
+
+    overlay.addEventListener("pointercancel", () => {
+      overlayDrag = null;
+      persistCurrentOverlayLayout();
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Overlay UI
   // ---------------------------------------------------------------------------
@@ -1029,8 +1226,12 @@
         right: 12px;
         z-index: 2147483646;
         width: min(360px, calc(100vw - 24px));
+        height: min(620px, calc(100vh - 24px));
+        min-width: 320px;
+        min-height: 460px;
         max-height: calc(100vh - 24px);
         overflow: auto;
+        resize: both;
         background: #111827;
         color: #f8fafc;
         border: 1px solid #475569;
@@ -1042,8 +1243,12 @@
       }
       #${OVERLAY_ID}[data-hidden="true"] {
         width: auto;
+        height: auto;
+        min-width: 0;
+        min-height: 0;
         max-height: none;
-        overflow: visible;
+        overflow: auto;
+        resize: both;
         background: transparent;
         border: 0;
         box-shadow: none;
@@ -1060,6 +1265,8 @@
         display: block;
       }
       #${OVERLAY_ID} .pkh-restore button {
+        width: 100%;
+        height: 100%;
         background: #0f172a;
         border-color: #38bdf8;
         box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
@@ -1070,6 +1277,7 @@
         padding: 5px 8px;
         text-align: center;
         line-height: 1.05;
+        cursor: move;
       }
       #${OVERLAY_ID} .pkh-restore-main {
         font-size: 11px;
@@ -1089,6 +1297,10 @@
         padding: 10px 12px;
         border-bottom: 1px solid #334155;
         background: #0f172a;
+        cursor: move;
+      }
+      #${OVERLAY_ID} .pkh-head button {
+        cursor: pointer;
       }
       #${OVERLAY_ID} .pkh-title {
         font-weight: 700;
@@ -1395,6 +1607,7 @@
     `;
 
     document.body.appendChild(overlay);
+    applyOverlayLayout();
 
     overlayFields = {
       attempts: overlay.querySelector("[data-field='attempts']"),
@@ -1409,6 +1622,12 @@
     };
 
     overlay.addEventListener("click", (event) => {
+      if (Date.now() < suppressOverlayClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       const tab = event.target.closest("[data-tab]");
       if (tab) {
         selectOverlayTab(tab.dataset.tab);
@@ -1459,6 +1678,8 @@
     });
 
     setupPokemonPickers();
+    setupOverlayDragging();
+    setupOverlayResizePersistence();
     updateOverlay();
   }
 
@@ -1613,8 +1834,10 @@
   }
 
   function toggleOverlayVisibility(forceHidden) {
+    persistCurrentOverlayLayout();
     runtime.overlayHidden = typeof forceHidden === "boolean" ? forceHidden : !runtime.overlayHidden;
     writeStorage("overlayHidden", runtime.overlayHidden);
+    applyOverlayLayout();
     updateOverlay();
   }
 
