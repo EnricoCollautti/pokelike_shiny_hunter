@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.7
+// @version      1.7.8
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.7";
+  const SCRIPT_VERSION = "1.7.8";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -1517,23 +1517,6 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      #${OVERLAY_ID} .pkh-picker[data-previewing="true"] .pkh-picker-control input[type="text"] {
-        color: transparent;
-        caret-color: transparent;
-      }
-      #${OVERLAY_ID} .pkh-picker-preview-name {
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        display: block;
-        min-width: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        color: rgba(148, 163, 184, 0.5);
-        font-weight: 700;
-        pointer-events: none;
-      }
       #${OVERLAY_ID} .pkh-picker-menu {
         display: none;
         position: absolute;
@@ -1849,7 +1832,6 @@
           <img class="pkh-pokemon-sprite" data-picker-selected-sprite alt="" loading="lazy" hidden>
           <span class="pkh-picker-name-wrap">
             <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
-            <span class="pkh-picker-preview-name" data-picker-preview-name aria-hidden="true"></span>
           </span>
           <span class="pkh-type-list" data-picker-selected-types></span>
         </div>
@@ -1881,9 +1863,7 @@
 
   function exitPickerPreviewMode(picker, restoreQuery = false) {
     const input = picker.querySelector("[data-picker-input]");
-    const ghostName = picker.querySelector("[data-picker-preview-name]");
     picker.dataset.previewing = "false";
-    if (ghostName) ghostName.textContent = "";
     if (restoreQuery) setPickerInputValue(input, picker.dataset.queryValue || "");
   }
 
@@ -1892,13 +1872,12 @@
     const sprite = picker.querySelector("[data-picker-selected-sprite]");
     const types = picker.querySelector("[data-picker-selected-types]");
     const input = picker.querySelector("[data-picker-input]");
-    const ghostName = picker.querySelector("[data-picker-preview-name]");
     if (!preview) return;
     const selectedName = pokemon ? pokemon.name : "";
-    if (input && options.syncInput) setPickerInputValue(input, selectedName);
     if (options.rememberQuery) rememberPickerQuery(picker);
-    picker.dataset.previewing = String(Boolean(options.ghostName && selectedName));
-    if (ghostName) ghostName.textContent = options.ghostName ? selectedName : "";
+    const previewInput = Boolean(options.previewInput && selectedName);
+    picker.dataset.previewing = String(previewInput);
+    if (input && (options.syncInput || previewInput)) setPickerInputValue(input, selectedName);
     if (preview.dataset.pokemon === selectedName) return;
     if (sprite) {
       sprite.hidden = !pokemon;
@@ -1953,7 +1932,7 @@
       : `<div class="pkh-picker-empty">No Pokemon in ${escapeHtml(selectedRegion().label)} matches this filter.</div>`;
     menu.dataset.open = "true";
     if (options.length && previewFirst) setActivePokemonOption(picker, 0);
-    else if (!options.length && previewFirst) showPokemonInPickerPreview(picker, null, { ghostName: true, rememberQuery: true });
+    else if (!options.length && previewFirst) showPokemonInPickerPreview(picker, null, { rememberQuery: true });
   }
 
   function getPickerOptions(picker) {
@@ -1973,7 +1952,7 @@
       option.dataset.active = String(active);
       option.setAttribute("aria-selected", String(active));
     });
-    showPokemonInPickerPreview(picker, findPokemonOption(options[boundedIndex].dataset.pickerOption, settings.region), { ghostName: true, rememberQuery: true });
+    showPokemonInPickerPreview(picker, findPokemonOption(options[boundedIndex].dataset.pickerOption, settings.region), { previewInput: true, rememberQuery: true });
     options[boundedIndex].scrollIntoView({ block: "nearest" });
   }
 
