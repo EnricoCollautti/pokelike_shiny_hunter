@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      2.0.0
+// @version      2.0.1
 // @author       enricocollautti
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @homepageURL  https://github.com/EnricoCollautti/pokelike_shiny_hunter
@@ -31,7 +31,8 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "2.0.0";
+  const SCRIPT_VERSION = "2.0.1";
+  const UPDATE_URL = "https://raw.githubusercontent.com/EnricoCollautti/pokelike_shiny_hunter/main/pokelike-shiny-hunter.user.js";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -878,6 +879,10 @@
     stopReason: "",
     loopToken: 0,
     overlayHidden: readBool("overlayHidden", false),
+    updateChecking: false,
+    updateLatestVersion: "",
+    updateMessage: "Not checked.",
+    updateAvailable: false,
     logs: []
   };
 
@@ -1720,6 +1725,13 @@
           <label><input type="checkbox" data-setting="stopOnAnyShiny"> Stop on any shiny</label>
           <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
           <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
+          <div class="pkh-grid">
+            <div class="pkh-label">Update</div><div class="pkh-value" data-field="update">Not checked.</div>
+          </div>
+          <div class="pkh-buttons">
+            <button type="button" data-action="checkupdate">Check for update</button>
+            <button type="button" data-action="openupdate" data-update-button hidden>Open update page</button>
+          </div>
         </div>
         <div class="pkh-panel" data-panel="debug" data-active="${String(initialTab === "debug")}">
           <div class="pkh-grid">
@@ -1744,6 +1756,8 @@
       error: overlay.querySelector("[data-field='error']"),
       target: overlay.querySelector("[data-field='target']"),
       starter: overlay.querySelector("[data-field='starter']"),
+      update: overlay.querySelector("[data-field='update']"),
+      updateButton: overlay.querySelector("[data-update-button]"),
       log: overlay.querySelector("[data-field='log']"),
       found: overlay.querySelector("[data-field='found']")
     };
@@ -1770,6 +1784,8 @@
       if (action === "hide") toggleOverlayVisibility();
       if (action === "show") toggleOverlayVisibility(false);
       if (action === "savehunt") applyHuntInputsFromOverlay();
+      if (action === "checkupdate") checkForUpdate();
+      if (action === "openupdate") openUpdatePage();
       if (action === "copylog") copyDebugLog();
     });
 
@@ -2078,6 +2094,8 @@
     if (overlayFields.error) overlayFields.error.textContent = runtime.lastError || "none";
     if (overlayFields.target) overlayFields.target.textContent = `Shiny ${settings.targetPokemon}`;
     if (overlayFields.starter) overlayFields.starter.textContent = settings.starterPokemon;
+    if (overlayFields.update) overlayFields.update.textContent = runtime.updateMessage;
+    if (overlayFields.updateButton) overlayFields.updateButton.hidden = !runtime.updateAvailable;
     if (overlayFields.log) overlayFields.log.textContent = runtime.logs.slice(-12).join("\n");
     if (overlayFields.found) overlayFields.found.dataset.show = String(runtime.state === STATES.FOUND);
     if (overlayFields.found) overlayFields.found.textContent = runtime.foundMessage || `Shiny ${settings.targetPokemon} found!`;
@@ -2125,6 +2143,57 @@
 
   function normalizeForCompare(value) {
     return normalizeText(value).toLowerCase();
+  }
+
+  function parseVersionParts(version) {
+    return String(version || "")
+      .split(".")
+      .map((part) => Number(part.replace(/\D.*/, "")) || 0);
+  }
+
+  function compareVersions(left, right) {
+    const a = parseVersionParts(left);
+    const b = parseVersionParts(right);
+    const length = Math.max(a.length, b.length, 3);
+    for (let index = 0; index < length; index += 1) {
+      const diff = (a[index] || 0) - (b[index] || 0);
+      if (diff !== 0) return diff;
+    }
+    return 0;
+  }
+
+  function extractUserscriptVersion(text) {
+    const match = String(text || "").match(/^\s*\/\/\s*@version\s+([^\s]+)/m);
+    return match ? match[1] : "";
+  }
+
+  async function checkForUpdate() {
+    if (runtime.updateChecking) return;
+    runtime.updateChecking = true;
+    runtime.updateMessage = "Checking...";
+    runtime.updateAvailable = false;
+    updateOverlay();
+    try {
+      const response = await fetch(`${UPDATE_URL}?t=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const latestVersion = extractUserscriptVersion(await response.text());
+      if (!latestVersion) throw new Error("Could not find @version.");
+      runtime.updateLatestVersion = latestVersion;
+      runtime.updateAvailable = compareVersions(latestVersion, SCRIPT_VERSION) > 0;
+      runtime.updateMessage = runtime.updateAvailable
+        ? `New version available: v${latestVersion}`
+        : `You are up to date: v${SCRIPT_VERSION}`;
+    } catch (error) {
+      runtime.updateMessage = `Update check failed: ${error.message || error}`;
+      runtime.updateAvailable = false;
+    } finally {
+      runtime.updateChecking = false;
+      updateOverlay();
+    }
+  }
+
+  function openUpdatePage() {
+    window.open(UPDATE_URL, "_blank", "noopener,noreferrer");
   }
 
   function getElementText(el) {

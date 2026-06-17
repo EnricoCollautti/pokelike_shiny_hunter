@@ -62,6 +62,8 @@ A Shiny! Too bad it's not <Target> :(
 - `bot` / `show`: restores the overlay after hiding it.
 - `Insert`: hide or show the overlay.
 - `Copy log`: copies a debug log if something breaks.
+- `Check for update`: checks GitHub for a newer bot version.
+- `Open update page`: opens the raw userscript page so Tampermonkey can install the update.
 
 You can drag the full panel by its header and resize it from the bottom-right corner. Each tab remembers its own panel height, so the larger `Hunt` tab can stay taller while compact tabs stay shorter. The hidden `bot` / `show` tab can be restored by clicking it, dragged by the small blue handle, and resized from its bottom-right corner. Positions and sizes are saved in the browser under the script's own keys.
 
@@ -84,6 +86,7 @@ The panel is split into tabs:
 - `Stop on any shiny`: stop when any shiny appears, even if it is not your target.
 - `Dry run mode`: logs what the bot would do without clicking, pressing keys, resetting, or reloading.
 - `Auto resume after reload`: starts automatically when the Pokelike page loads.
+- `Check for update`: compares the installed bot version with the raw GitHub userscript. If a newer version is available, use `Open update page` and confirm the update in Tampermonkey.
 
 The target and starter picker shows a small sprite thumbnail, the Pokemon name, and type badges. Sprite thumbnails are loaded only for visible picker suggestions so they should not affect the hunt loop.
 
