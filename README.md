@@ -18,11 +18,11 @@ Use only in your own browser and respect the game creator's rules.
 3. Open this raw userscript URL:
    https://raw.githubusercontent.com/EnricoCollautti/pokelike_shiny_hunter/main/pokelike-shiny-hunter.user.js
 4. Tampermonkey should open an install page. Click `Install`.
-5. Open `https://pokelike.xyz/`.
+5. Open [https://pokelike.xyz/](https://pokelike.xyz/).
 
 You should see a floating panel named `Shiny Hunter - v...`.
 
-If you previously installed the bot by copy-pasting the code into Tampermonkey, install it once again from the raw GitHub URL above. After that, Tampermonkey can detect future version bumps through the script's `@updateURL` and `@downloadURL` metadata.
+Tampermonkey can detect future version bumps through the script's `@updateURL` and `@downloadURL` metadata and update the bot.
 
 ## Usage
 
