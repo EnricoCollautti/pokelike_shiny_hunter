@@ -15,14 +15,14 @@ Use only in your own browser and respect the game creator's rules.
 1. Install the Tampermonkey browser extension.
 2. If you use Chrome or Edge, follow Tampermonkey's `Permission to execute userscripts` instructions:
    https://www.tampermonkey.net/faq.php?q=Q209#Q209
-3. Open the Tampermonkey dashboard.
-4. Click `Create a new script`.
-5. Replace the default contents with:
-   `pokelike-shiny-hunter.user.js`
-6. Save the script.
-7. Open `https://pokelike.xyz/`.
+3. Open this raw userscript URL:
+   https://raw.githubusercontent.com/EnricoCollautti/pokelike_shiny_hunter/main/pokelike-shiny-hunter.user.js
+4. Tampermonkey should open an install page. Click `Install`.
+5. Open `https://pokelike.xyz/`.
 
 You should see a floating panel named `Shiny Hunter - v...`.
+
+If you previously installed the bot by copy-pasting the code into Tampermonkey, install it once again from the raw GitHub URL above. After that, Tampermonkey can detect future version bumps through the script's `@updateURL` and `@downloadURL` metadata.
 
 ## Usage
 
@@ -94,6 +94,10 @@ When you change the target Pokemon, the saved attempt counter resets to `0`. Whe
 ## Safety Notes
 
 This is automation. Even though it is local-only and does not modify game internals, it may still violate the game creator's rules. Use it only if you are comfortable with that risk.
+
+## Updates
+
+The userscript includes Tampermonkey update metadata. When a new version is pushed to GitHub with a higher `@version`, Tampermonkey can update the installed script from the raw GitHub URL. You can also check manually from the Tampermonkey dashboard.
 
 ## Debugging
 
