@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.2
+// @version      1.7.3
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,15 +26,15 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.2";
+  const SCRIPT_VERSION = "1.7.3";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
   const MIN_PANEL_HEIGHT = 260;
-  const PANEL_LAYOUT_VERSION = "3";
+  const PANEL_LAYOUT_VERSION = "4";
   const PANEL_DEFAULT_HEIGHTS = {
     status: 640,
-    hunt: 540,
+    hunt: 500,
     settings: 430,
     debug: 300
   };
@@ -1482,33 +1482,31 @@
       #${OVERLAY_ID} .pkh-picker label {
         display: block;
       }
-      #${OVERLAY_ID} .pkh-picker input[type="text"] {
-        width: 100%;
-      }
-      #${OVERLAY_ID} .pkh-picker-selected {
+      #${OVERLAY_ID} .pkh-picker-control {
         display: grid;
-        grid-template-columns: 28px minmax(0, 1fr);
+        grid-template-columns: 24px minmax(42px, 1fr) max-content;
         align-items: center;
-        gap: 7px;
-        min-height: 42px;
-        padding: 5px 6px;
-        border: 1px solid #334155;
+        gap: 6px;
+        min-height: 38px;
+        padding: 4px 6px;
+        border: 1px solid #475569;
         border-radius: 6px;
-        background: #0b1220;
+        background: #020617;
       }
-      #${OVERLAY_ID} .pkh-picker-selected[data-empty="true"] {
-        display: none;
+      #${OVERLAY_ID} .pkh-picker-control:focus-within {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
       }
-      #${OVERLAY_ID} .pkh-picker-selected-meta {
-        display: grid;
-        gap: 3px;
+      #${OVERLAY_ID} .pkh-picker-control input[type="text"] {
+        width: 100%;
         min-width: 0;
-      }
-      #${OVERLAY_ID} .pkh-picker-selected-name {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        padding: 0;
+        color: #f8fafc;
         font-weight: 700;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        outline: 0;
       }
       #${OVERLAY_ID} .pkh-picker-menu {
         display: none;
@@ -1817,21 +1815,13 @@
     return `
       <div class="pkh-picker" data-picker="${escapeHtml(settingName)}">
         <label for="${escapeHtml(id)}">${escapeHtml(label)}</label>
-        <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
-        <div class="pkh-picker-selected" data-picker-selected data-empty="true"></div>
+        <div class="pkh-picker-control" data-picker-selected>
+          <img class="pkh-pokemon-sprite" data-picker-selected-sprite alt="" loading="lazy" hidden>
+          <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
+          <span class="pkh-type-list" data-picker-selected-types></span>
+        </div>
         <div class="pkh-picker-menu" data-picker-menu role="listbox"></div>
       </div>
-    `;
-  }
-
-  function renderSelectedPokemon(pokemon) {
-    if (!pokemon) return "";
-    return `
-      <img class="pkh-pokemon-sprite" src="${escapeHtml(pokemonSpriteUrl(pokemon))}" alt="" loading="lazy">
-      <span class="pkh-picker-selected-meta">
-        <span class="pkh-picker-selected-name">${escapeHtml(pokemon.name)}</span>
-        <span class="pkh-type-list">${renderTypeBadges(pokemon.types)}</span>
-      </span>
     `;
   }
 
@@ -1840,12 +1830,17 @@
     overlay.querySelectorAll("[data-picker]").forEach((picker) => {
       const settingName = picker.dataset.picker;
       const preview = picker.querySelector("[data-picker-selected]");
+      const sprite = picker.querySelector("[data-picker-selected-sprite]");
+      const types = picker.querySelector("[data-picker-selected-types]");
       if (!settingName || !preview) return;
       const pokemon = findPokemonOption(settings[settingName], settings.region);
       const selectedName = pokemon ? pokemon.name : "";
       if (preview.dataset.pokemon === selectedName) return;
-      preview.innerHTML = renderSelectedPokemon(pokemon);
-      preview.dataset.empty = String(!pokemon);
+      if (sprite) {
+        sprite.hidden = !pokemon;
+        if (pokemon) sprite.src = pokemonSpriteUrl(pokemon);
+      }
+      if (types) types.innerHTML = pokemon ? renderTypeBadges(pokemon.types) : "";
       preview.dataset.pokemon = selectedName;
     });
   }
