@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.8.0
+// @version      1.8.1
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.8.0";
+  const SCRIPT_VERSION = "1.8.1";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -1493,6 +1493,13 @@
         border-radius: 6px;
         background: #020617;
       }
+      #${OVERLAY_ID} .pkh-picker-control[data-empty="true"] {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      #${OVERLAY_ID} .pkh-picker-control[data-empty="true"] .pkh-pokemon-sprite,
+      #${OVERLAY_ID} .pkh-picker-control[data-empty="true"] [data-picker-selected-types] {
+        display: none;
+      }
       #${OVERLAY_ID} .pkh-picker-control:focus-within {
         border-color: #38bdf8;
         box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
@@ -1828,7 +1835,7 @@
     return `
       <div class="pkh-picker" data-picker="${escapeHtml(settingName)}">
         <label for="${escapeHtml(id)}">${escapeHtml(label)}</label>
-        <div class="pkh-picker-control" data-picker-selected>
+        <div class="pkh-picker-control" data-picker-selected data-empty="true">
           <img class="pkh-pokemon-sprite" data-picker-selected-sprite alt="" loading="lazy" hidden>
           <span class="pkh-picker-name-wrap">
             <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
@@ -1847,6 +1854,7 @@
     if (!preview) return;
     const selectedName = pokemon ? pokemon.name : "";
     if (preview.dataset.pokemon === selectedName) return;
+    preview.dataset.empty = String(!pokemon);
     if (sprite) {
       sprite.hidden = !pokemon;
       if (pokemon) sprite.src = pokemonSpriteUrl(pokemon);
