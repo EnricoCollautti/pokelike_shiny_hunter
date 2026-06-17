@@ -56,6 +56,7 @@ A Shiny! Too bad it's not <Target> :(
 - `Start`: starts the hunt loop.
 - `Pause`: pauses or resumes the bot.
 - `Stop`: stops the bot.
+- `Save` in the `Hunt` tab: applies the selected region, target, and starter, including while the bot is running.
 - `Escape`: emergency stop.
 - `Hide`: collapses the overlay to a tiny movable tab shifted left from the game menu.
 - `bot` / `show`: restores the overlay after hiding it.

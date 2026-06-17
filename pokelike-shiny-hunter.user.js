@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.0
+// @version      1.7.1
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,16 +26,17 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.0";
+  const SCRIPT_VERSION = "1.7.1";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
   const MIN_PANEL_HEIGHT = 260;
+  const PANEL_LAYOUT_VERSION = "2";
   const PANEL_DEFAULT_HEIGHTS = {
-    status: 520,
-    hunt: 660,
-    settings: 500,
-    debug: 340
+    status: 640,
+    hunt: 490,
+    settings: 430,
+    debug: 300
   };
   const DEFAULT_PANEL_TOP = 12;
   const DEFAULT_PANEL_RIGHT = 12;
@@ -1003,6 +1004,24 @@
     }
   }
 
+  function removeStorage(name) {
+    try {
+      localStorage.removeItem(storageKey(name));
+    } catch (error) {
+      log(`Could not remove ${name}: ${error.message || error}`);
+    }
+  }
+
+  function migratePanelLayoutDefaults() {
+    try {
+      if (localStorage.getItem(storageKey("panelLayoutVersion")) === PANEL_LAYOUT_VERSION) return;
+      Object.keys(PANEL_DEFAULT_HEIGHTS).forEach((tabName) => removeStorage(panelHeightKey(tabName)));
+      writeStorage("panelLayoutVersion", PANEL_LAYOUT_VERSION);
+    } catch (error) {
+      log(`Could not migrate panel layout: ${error.message || error}`);
+    }
+  }
+
   function loadSettings() {
     return {
       region: readRegion("region", CONFIG.region),
@@ -1392,6 +1411,9 @@
         align-items: center;
         flex-wrap: wrap;
       }
+      #${OVERLAY_ID} .pkh-hunt-actions {
+        justify-content: flex-end;
+      }
       #${OVERLAY_ID} button {
         border: 1px solid #64748b;
         border-radius: 6px;
@@ -1633,6 +1655,9 @@
             ${renderPokemonPicker("targetPokemon", "Target", "Charmander")}
             ${renderPokemonPicker("starterPokemon", "Starter", "Magnemite")}
           </div>
+          <div class="pkh-buttons pkh-hunt-actions">
+            <button type="button" data-action="savehunt">Save</button>
+          </div>
         </div>
         <div class="pkh-panel" data-panel="settings" data-active="${String(initialTab === "settings")}">
           <div class="pkh-row">
@@ -1696,6 +1721,7 @@
       if (action === "stop") stopBot("Stopped by overlay button.", STATES.STOPPED);
       if (action === "hide") toggleOverlayVisibility();
       if (action === "show") toggleOverlayVisibility(false);
+      if (action === "savehunt") applyHuntInputsFromOverlay();
       if (action === "copylog") copyDebugLog();
     });
 
@@ -1827,6 +1853,26 @@
     }
   }
 
+  function applyHuntInputsFromOverlay() {
+    if (!overlay) return;
+    const previousTarget = settings.targetPokemon;
+    const regionInput = overlay.querySelector("[data-setting='region']");
+    const targetInput = overlay.querySelector("[data-setting='targetPokemon']");
+    const starterInput = overlay.querySelector("[data-setting='starterPokemon']");
+
+    if (regionInput) settings.region = normalizeRegionKey(regionInput.value);
+    if (targetInput) settings.targetPokemon = sanitizePokemonName(targetInput.value) || defaultPokemonForRegion(settings.region, "targetPokemon");
+    if (starterInput) settings.starterPokemon = sanitizePokemonName(starterInput.value) || defaultPokemonForRegion(settings.region, "starterPokemon");
+    resetInvalidPokemonSelectionsForRegion();
+
+    if (normalizeForCompare(previousTarget) !== normalizeForCompare(settings.targetPokemon)) {
+      resetAttemptsForNewTarget();
+    }
+    persistSettings();
+    closePokemonMenus();
+    updateOverlay();
+  }
+
   function setupPokemonPickers() {
     overlay.querySelectorAll("[data-picker]").forEach((picker) => {
       const input = picker.querySelector("[data-picker-input]");
@@ -1886,6 +1932,9 @@
       overlay.querySelectorAll("[data-setting]").forEach((input) => {
         const name = input.dataset.setting;
         if (!(name in settings)) return;
+        const picker = input.closest("[data-picker]");
+        const menu = picker ? picker.querySelector("[data-picker-menu]") : null;
+        if (document.activeElement === input || (menu && menu.dataset.open === "true")) return;
         if (input.type === "checkbox") input.checked = Boolean(settings[name]);
         else input.value = settings[name];
       });
@@ -3452,6 +3501,7 @@
   }, true);
 
   function init() {
+    migratePanelLayoutDefaults();
     createOverlay();
     exposeDebugObject();
     log("Loaded.");
