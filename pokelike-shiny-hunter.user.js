@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.1
+// @version      1.7.2
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,15 +26,15 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.1";
+  const SCRIPT_VERSION = "1.7.2";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
   const MIN_PANEL_HEIGHT = 260;
-  const PANEL_LAYOUT_VERSION = "2";
+  const PANEL_LAYOUT_VERSION = "3";
   const PANEL_DEFAULT_HEIGHTS = {
     status: 640,
-    hunt: 490,
+    hunt: 540,
     settings: 430,
     debug: 300
   };
@@ -1485,6 +1485,31 @@
       #${OVERLAY_ID} .pkh-picker input[type="text"] {
         width: 100%;
       }
+      #${OVERLAY_ID} .pkh-picker-selected {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        align-items: center;
+        gap: 7px;
+        min-height: 42px;
+        padding: 5px 6px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #0b1220;
+      }
+      #${OVERLAY_ID} .pkh-picker-selected[data-empty="true"] {
+        display: none;
+      }
+      #${OVERLAY_ID} .pkh-picker-selected-meta {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+      }
+      #${OVERLAY_ID} .pkh-picker-selected-name {
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
       #${OVERLAY_ID} .pkh-picker-menu {
         display: none;
         position: absolute;
@@ -1793,9 +1818,36 @@
       <div class="pkh-picker" data-picker="${escapeHtml(settingName)}">
         <label for="${escapeHtml(id)}">${escapeHtml(label)}</label>
         <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
+        <div class="pkh-picker-selected" data-picker-selected data-empty="true"></div>
         <div class="pkh-picker-menu" data-picker-menu role="listbox"></div>
       </div>
     `;
+  }
+
+  function renderSelectedPokemon(pokemon) {
+    if (!pokemon) return "";
+    return `
+      <img class="pkh-pokemon-sprite" src="${escapeHtml(pokemonSpriteUrl(pokemon))}" alt="" loading="lazy">
+      <span class="pkh-picker-selected-meta">
+        <span class="pkh-picker-selected-name">${escapeHtml(pokemon.name)}</span>
+        <span class="pkh-type-list">${renderTypeBadges(pokemon.types)}</span>
+      </span>
+    `;
+  }
+
+  function updateSelectedPokemonPreviews() {
+    if (!overlay) return;
+    overlay.querySelectorAll("[data-picker]").forEach((picker) => {
+      const settingName = picker.dataset.picker;
+      const preview = picker.querySelector("[data-picker-selected]");
+      if (!settingName || !preview) return;
+      const pokemon = findPokemonOption(settings[settingName], settings.region);
+      const selectedName = pokemon ? pokemon.name : "";
+      if (preview.dataset.pokemon === selectedName) return;
+      preview.innerHTML = renderSelectedPokemon(pokemon);
+      preview.dataset.empty = String(!pokemon);
+      preview.dataset.pokemon = selectedName;
+    });
   }
 
   function renderPokemonOption(pokemon) {
@@ -1927,6 +1979,7 @@
     if (overlayFields.log) overlayFields.log.textContent = runtime.logs.slice(-12).join("\n");
     if (overlayFields.found) overlayFields.found.dataset.show = String(runtime.state === STATES.FOUND);
     if (overlayFields.found) overlayFields.found.textContent = runtime.foundMessage || `Shiny ${settings.targetPokemon} found!`;
+    updateSelectedPokemonPreviews();
 
     if (overlay) {
       overlay.querySelectorAll("[data-setting]").forEach((input) => {
