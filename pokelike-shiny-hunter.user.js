@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.9
+// @version      1.8.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.9";
+  const SCRIPT_VERSION = "1.8.0";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -1893,6 +1893,7 @@
     const input = picker.querySelector("[data-picker-input]");
     const menu = picker.querySelector("[data-picker-menu]");
     if (!input || !menu) return;
+    showPokemonInPickerPreview(picker, null);
 
     const options = filterPokemonOptions(input.value);
     menu.innerHTML = options.length
