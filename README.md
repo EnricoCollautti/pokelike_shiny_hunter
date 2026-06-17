@@ -62,7 +62,7 @@ A Shiny! Too bad it's not <Target> :(
 - `Insert`: hide or show the overlay.
 - `Copy log`: copies a debug log if something breaks.
 
-You can drag the full panel by its header and resize it from the bottom-right corner. The hidden `bot` / `show` tab can also be dragged and resized. Positions and sizes are saved in the browser under the script's own keys.
+You can drag the full panel by its header and resize it from the bottom-right corner. Each tab remembers its own panel height, so the larger `Hunt` tab can stay taller while compact tabs stay shorter. The hidden `bot` / `show` tab can be restored by clicking it, dragged by the small blue handle, and resized from its bottom-right corner. Positions and sizes are saved in the browser under the script's own keys.
 
 The panel is split into tabs:
 

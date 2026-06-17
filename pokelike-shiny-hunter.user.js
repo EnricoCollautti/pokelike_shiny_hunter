@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.6.1
+// @version      1.7.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,10 +26,17 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.6.1";
+  const SCRIPT_VERSION = "1.7.0";
 
   const DEFAULT_PANEL_WIDTH = 360;
-  const DEFAULT_PANEL_HEIGHT = 620;
+  const MIN_PANEL_WIDTH = 320;
+  const MIN_PANEL_HEIGHT = 260;
+  const PANEL_DEFAULT_HEIGHTS = {
+    status: 520,
+    hunt: 660,
+    settings: 500,
+    debug: 340
+  };
   const DEFAULT_PANEL_TOP = 12;
   const DEFAULT_PANEL_RIGHT = 12;
   const DEFAULT_RESTORE_RIGHT = 56;
@@ -875,6 +882,7 @@
   let overlayResizeObserver = null;
   let overlayDrag = null;
   let suppressOverlayClickUntil = 0;
+  let activeOverlayTab = readOverlayTab();
 
   function storageKey(name) {
     return `${STORAGE_PREFIX}${name}`;
@@ -917,6 +925,26 @@
     } catch (error) {
       return normalizeRegionKey(fallback);
     }
+  }
+
+  function normalizeOverlayTab(value) {
+    return Object.prototype.hasOwnProperty.call(PANEL_DEFAULT_HEIGHTS, value) ? value : "status";
+  }
+
+  function readOverlayTab() {
+    try {
+      return normalizeOverlayTab(localStorage.getItem(storageKey("activeTab")) || "status");
+    } catch (error) {
+      return "status";
+    }
+  }
+
+  function panelHeightKey(tabName) {
+    return `panelHeight_${normalizeOverlayTab(tabName)}`;
+  }
+
+  function defaultPanelHeight(tabName) {
+    return PANEL_DEFAULT_HEIGHTS[normalizeOverlayTab(tabName)];
   }
 
   function sanitizePokemonName(value) {
@@ -1029,9 +1057,9 @@
     return Math.min(max, Math.max(min, value));
   }
 
-  function getDefaultPanelLayout() {
-    const width = clampNumber(DEFAULT_PANEL_WIDTH, 320, Math.max(320, window.innerWidth - 24));
-    const height = clampNumber(DEFAULT_PANEL_HEIGHT, 460, Math.max(460, window.innerHeight - 24));
+  function getDefaultPanelLayout(tabName = activeOverlayTab) {
+    const width = clampNumber(DEFAULT_PANEL_WIDTH, MIN_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 24));
+    const height = clampNumber(defaultPanelHeight(tabName), MIN_PANEL_HEIGHT, Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 24));
     return {
       left: clampNumber(window.innerWidth - width - DEFAULT_PANEL_RIGHT, 8, Math.max(8, window.innerWidth - 80)),
       top: DEFAULT_PANEL_TOP,
@@ -1049,10 +1077,11 @@
     };
   }
 
-  function readPanelLayout() {
-    const fallback = getDefaultPanelLayout();
-    const width = readNumber("panelWidth", fallback.width, 320, Math.max(320, window.innerWidth - 8));
-    const height = readNumber("panelHeight", fallback.height, 460, Math.max(460, window.innerHeight - 8));
+  function readPanelLayout(tabName = activeOverlayTab) {
+    const normalizedTab = normalizeOverlayTab(tabName);
+    const fallback = getDefaultPanelLayout(normalizedTab);
+    const width = readNumber("panelWidth", fallback.width, MIN_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 8));
+    const height = readNumber(panelHeightKey(normalizedTab), fallback.height, MIN_PANEL_HEIGHT, Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 8));
     return {
       left: readNumber("panelLeft", fallback.left, 0, Math.max(0, window.innerWidth - 48)),
       top: readNumber("panelTop", fallback.top, 0, Math.max(0, window.innerHeight - 48)),
@@ -1072,8 +1101,8 @@
   }
 
   function clampPanelLayout(layout) {
-    const width = clampNumber(layout.width, 320, Math.max(320, window.innerWidth - 8));
-    const height = clampNumber(layout.height, 460, Math.max(460, window.innerHeight - 8));
+    const width = clampNumber(layout.width, MIN_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, window.innerWidth - 8));
+    const height = clampNumber(layout.height, MIN_PANEL_HEIGHT, Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 8));
     return {
       left: clampNumber(layout.left, 0, Math.max(0, window.innerWidth - 48)),
       top: clampNumber(layout.top, 0, Math.max(0, window.innerHeight - 48)),
@@ -1105,7 +1134,7 @@
       return;
     }
 
-    const layout = clampPanelLayout(readPanelLayout());
+    const layout = clampPanelLayout(readPanelLayout(activeOverlayTab));
     overlay.style.left = `${layout.left}px`;
     overlay.style.top = `${layout.top}px`;
     overlay.style.right = "auto";
@@ -1113,8 +1142,9 @@
     overlay.style.height = `${layout.height}px`;
   }
 
-  function persistPanelLayout() {
+  function persistPanelLayout(tabName = activeOverlayTab) {
     if (!overlay || runtime.overlayHidden) return;
+    const normalizedTab = normalizeOverlayTab(tabName);
     const rect = overlay.getBoundingClientRect();
     const layout = clampPanelLayout({
       left: rect.left,
@@ -1126,6 +1156,7 @@
     writeStorage("panelTop", Math.round(layout.top));
     writeStorage("panelWidth", Math.round(layout.width));
     writeStorage("panelHeight", Math.round(layout.height));
+    writeStorage(panelHeightKey(normalizedTab), Math.round(layout.height));
   }
 
   function persistRestoreLayout() {
@@ -1161,9 +1192,9 @@
 
   function setupOverlayDragging() {
     overlay.addEventListener("pointerdown", (event) => {
-      const restoreButton = event.target.closest(".pkh-restore button");
       const header = event.target.closest(".pkh-head");
-      if (!restoreButton && !header) return;
+      const restoreHandle = event.target.closest(".pkh-restore-drag");
+      if (!restoreHandle && !header) return;
       if (header && event.target.closest("button")) return;
 
       const rect = overlay.getBoundingClientRect();
@@ -1226,9 +1257,9 @@
         right: 12px;
         z-index: 2147483646;
         width: min(360px, calc(100vw - 24px));
-        height: min(620px, calc(100vh - 24px));
-        min-width: 320px;
-        min-height: 460px;
+        height: min(${PANEL_DEFAULT_HEIGHTS.status}px, calc(100vh - 24px));
+        min-width: ${MIN_PANEL_WIDTH}px;
+        min-height: ${MIN_PANEL_HEIGHT}px;
         max-height: calc(100vh - 24px);
         overflow: auto;
         resize: both;
@@ -1260,8 +1291,27 @@
       }
       #${OVERLAY_ID} .pkh-restore {
         display: none;
+        position: relative;
+        width: 100%;
+        height: 100%;
       }
       #${OVERLAY_ID}[data-hidden="true"] .pkh-restore {
+        display: block;
+      }
+      #${OVERLAY_ID} .pkh-restore-drag {
+        display: none;
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        z-index: 2;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        background: #38bdf8;
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.85);
+        cursor: move;
+      }
+      #${OVERLAY_ID}[data-hidden="true"] .pkh-restore-drag {
         display: block;
       }
       #${OVERLAY_ID} .pkh-restore button {
@@ -1277,7 +1327,7 @@
         padding: 5px 8px;
         text-align: center;
         line-height: 1.05;
-        cursor: move;
+        cursor: pointer;
       }
       #${OVERLAY_ID} .pkh-restore-main {
         font-size: 11px;
@@ -1532,12 +1582,16 @@
     `;
     document.head.appendChild(style);
 
+    const initialTab = normalizeOverlayTab(activeOverlayTab);
+    activeOverlayTab = initialTab;
+
     overlay = document.createElement("section");
     overlay.id = OVERLAY_ID;
     overlay.setAttribute("aria-label", "Pokelike Shiny Hunter");
     overlay.dataset.hidden = String(runtime.overlayHidden);
     overlay.innerHTML = `
       <div class="pkh-restore">
+        <span class="pkh-restore-drag" title="Drag hidden bot" aria-hidden="true"></span>
         <button type="button" data-action="show"><span class="pkh-restore-main">bot</span><span class="pkh-restore-sub">show</span></button>
       </div>
       <div class="pkh-head">
@@ -1548,12 +1602,12 @@
         <div class="pkh-disclaimer">${escapeHtml(DISCLAIMER)}</div>
         <div class="pkh-found" data-field="found">Shiny target found!</div>
         <div class="pkh-tabs" role="tablist">
-          <button type="button" class="pkh-tab" data-tab="status" data-active="true">Status</button>
-          <button type="button" class="pkh-tab" data-tab="hunt">Hunt</button>
-          <button type="button" class="pkh-tab" data-tab="settings">Settings</button>
-          <button type="button" class="pkh-tab" data-tab="debug">Debug</button>
+          <button type="button" class="pkh-tab" data-tab="status" data-active="${String(initialTab === "status")}">Status</button>
+          <button type="button" class="pkh-tab" data-tab="hunt" data-active="${String(initialTab === "hunt")}">Hunt</button>
+          <button type="button" class="pkh-tab" data-tab="settings" data-active="${String(initialTab === "settings")}">Settings</button>
+          <button type="button" class="pkh-tab" data-tab="debug" data-active="${String(initialTab === "debug")}">Debug</button>
         </div>
-        <div class="pkh-panel" data-panel="status" data-active="true">
+        <div class="pkh-panel" data-panel="status" data-active="${String(initialTab === "status")}">
           <div class="pkh-buttons">
             <button type="button" data-action="start" data-kind="start">Start</button>
             <button type="button" data-action="pause">Pause</button>
@@ -1569,7 +1623,7 @@
           </div>
           <div class="pkh-log" data-field="log"></div>
         </div>
-        <div class="pkh-panel" data-panel="hunt">
+        <div class="pkh-panel" data-panel="hunt" data-active="${String(initialTab === "hunt")}">
           <div class="pkh-row">
             <label>Region <select data-setting="region">
               ${REGIONS.map((region) => `<option value="${escapeHtml(region.key)}">${escapeHtml(region.label)}</option>`).join("")}
@@ -1580,7 +1634,7 @@
             ${renderPokemonPicker("starterPokemon", "Starter", "Magnemite")}
           </div>
         </div>
-        <div class="pkh-panel" data-panel="settings">
+        <div class="pkh-panel" data-panel="settings" data-active="${String(initialTab === "settings")}">
           <div class="pkh-row">
             <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
             <label>Max delay <input type="number" min="0" step="50" data-setting="maxDelayMs"></label>
@@ -1594,7 +1648,7 @@
           <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
           <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
         </div>
-        <div class="pkh-panel" data-panel="debug">
+        <div class="pkh-panel" data-panel="debug" data-active="${String(initialTab === "debug")}">
           <div class="pkh-grid">
             <div class="pkh-label">Last error</div><div class="pkh-value" data-field="error">none</div>
           </div>
@@ -1685,13 +1739,18 @@
 
   function selectOverlayTab(tabName) {
     if (!overlay) return;
+    const normalizedTab = normalizeOverlayTab(tabName);
+    if (!runtime.overlayHidden) persistPanelLayout(activeOverlayTab);
+    activeOverlayTab = normalizedTab;
+    writeStorage("activeTab", activeOverlayTab);
     overlay.querySelectorAll("[data-tab]").forEach((tab) => {
-      tab.dataset.active = String(tab.dataset.tab === tabName);
+      tab.dataset.active = String(tab.dataset.tab === activeOverlayTab);
     });
     overlay.querySelectorAll("[data-panel]").forEach((panel) => {
-      panel.dataset.active = String(panel.dataset.panel === tabName);
+      panel.dataset.active = String(panel.dataset.panel === activeOverlayTab);
     });
     closePokemonMenus();
+    if (!runtime.overlayHidden) applyOverlayLayout();
   }
 
   function escapeHtml(value) {
