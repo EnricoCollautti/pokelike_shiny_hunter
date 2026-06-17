@@ -30,8 +30,9 @@ You should see a floating panel named `Shiny Hunter - v...`.
 2. Click `Start` in the bot panel.
 3. Choose the Battle Tower region, target Pokemon, and starter in the bot panel.
 4. The bot enters Battle Tower, selects your region, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
-5. If a shiny version of your target appears, the bot stops and alerts you with the attempt count.
-6. If the shiny target does not appear, the bot resets/rerolls and repeats.
+5. If enabled, the bot uses each visible per-Pokemon reroll button once, then checks the rerolled choices too.
+6. If a shiny version of your target appears, the bot stops and alerts you with the attempt count.
+7. If the shiny target does not appear, the bot resets/rerolls the run and repeats.
 
 Defaults:
 
@@ -39,6 +40,7 @@ Defaults:
 Target: Charmander
 Starter: Magnemite
 Region: Kanto
+Use one reroll per Pokemon slot: on
 ```
 
 The small log shows only:
@@ -68,13 +70,14 @@ A Shiny! Too bad it's not <Target> :(
 - `Min delay` / `Max delay`: random wait between major actions, in milliseconds.
 - `Stop after N attempts`: stop after this many checks; `0` means unlimited.
 - `Catch shiny target automatically`: off by default, so you can continue manually after detection.
+- `Use one reroll per Pokemon slot`: on by default; checks the initial three Pokemon, clicks each visible slot reroll once, then checks the rerolled choices.
 - `Stop on any shiny`: stop when any shiny appears, even if it is not your target.
 - `Dry run mode`: logs what the bot would do without clicking, pressing keys, resetting, or reloading.
 - `Auto resume after reload`: starts automatically when the Pokelike page loads.
 
 The target and starter picker shows a small sprite thumbnail, the Pokemon name, and type badges. Sprite thumbnails are loaded only for visible picker suggestions so they should not affect the hunt loop.
 
-The region, target, and starter are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG.region`, `CONFIG.targetPokemon`, and `CONFIG.starterPokemon`.
+The region, target, starter, and other settings are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG`.
 
 When a shiny target is found, the alert says how many attempts it took. The saved attempt counter is then reset to `0` for the next hunt.
 
@@ -96,6 +99,7 @@ Debug helpers are also available in the browser console:
 window.pkHunterDebug.state()
 window.pkHunterDebug.cards()
 window.pkHunterDebug.catchNodes()
+window.pkHunterDebug.rerolls()
 window.pkHunterDebug.mapElements()
 window.pkHunterDebug.copyLog()
 window.pkHunterDebug.stop()

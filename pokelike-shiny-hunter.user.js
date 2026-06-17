@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.3.1
+// @version      1.4.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.3.1";
+  const SCRIPT_VERSION = "1.4.0";
 
   const STATES = {
     IDLE: "IDLE",
@@ -53,6 +53,7 @@
     stopAfterAttempts: 0,
     maxConsecutiveErrors: 5,
     autoCatch: false,
+    useChoiceRerolls: true,
     stopOnAnyShiny: false,
     dryRun: false,
     autoResume: false
@@ -972,6 +973,7 @@
       maxDelayMs: readNumber("maxDelayMs", CONFIG.maxDelayMs, 0, 60000),
       stopAfterAttempts: readNumber("stopAfterAttempts", CONFIG.stopAfterAttempts, 0, Number.MAX_SAFE_INTEGER),
       autoCatch: readBool("autoCatch", CONFIG.autoCatch),
+      useChoiceRerolls: readBool("useChoiceRerolls", CONFIG.useChoiceRerolls),
       stopOnAnyShiny: readBool("stopOnAnyShiny", CONFIG.stopOnAnyShiny),
       dryRun: readBool("dryRun", CONFIG.dryRun),
       autoResume: readBool("autoResume", CONFIG.autoResume)
@@ -995,6 +997,7 @@
     writeStorage("maxDelayMs", settings.maxDelayMs);
     writeStorage("stopAfterAttempts", settings.stopAfterAttempts);
     writeStorage("autoCatch", settings.autoCatch);
+    writeStorage("useChoiceRerolls", settings.useChoiceRerolls);
     writeStorage("stopOnAnyShiny", settings.stopOnAnyShiny);
     writeStorage("dryRun", settings.dryRun);
     writeStorage("autoResume", settings.autoResume);
@@ -1333,6 +1336,7 @@
           <label>Stop after N attempts <input type="number" min="0" step="1" data-setting="stopAfterAttempts"></label>
         </div>
         <label><input type="checkbox" data-setting="autoCatch"> Catch shiny target automatically</label>
+        <label><input type="checkbox" data-setting="useChoiceRerolls"> Use one reroll per Pokemon slot</label>
         <label><input type="checkbox" data-setting="stopOnAnyShiny"> Stop on any shiny</label>
         <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
         <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
@@ -1945,6 +1949,119 @@
     return child || card;
   }
 
+  function getChoiceArea() {
+    const catchChoices = document.querySelector("#catch-choices");
+    if (catchChoices && isVisible(catchChoices)) return catchChoices;
+    const catchScreen = document.querySelector("#catch-screen");
+    if (catchScreen && isVisible(catchScreen)) return catchScreen;
+    return document;
+  }
+
+  function isRerollText(value) {
+    return /\bre\s*-?\s*roll\b|\breroll\b/i.test(String(value || ""));
+  }
+
+  function isDisabledRerollControl(el) {
+    if (!el) return true;
+    const className = typeof el.className === "string" ? el.className : "";
+    return Boolean(
+      el.disabled
+      || el.getAttribute("disabled") !== null
+      || el.getAttribute("aria-disabled") === "true"
+      || /\b(disabled|used|spent|inactive)\b/i.test(className)
+    );
+  }
+
+  function isRerollControl(el) {
+    if (!el || isOverlayElement(el) || el.closest("#catch-team-bar") || isDisabledRerollControl(el)) return false;
+
+    const strongHint = [
+      el.id,
+      typeof el.className === "string" ? el.className : "",
+      el.getAttribute("aria-label"),
+      el.getAttribute("title"),
+      el.getAttribute("value")
+    ].some(isRerollText);
+    const textHint = isRerollText(getElementText(el));
+
+    if (!strongHint && !textHint) return false;
+    if (/reset run|new run|play again|main menu/i.test(getElementText(el))) return false;
+    if (el.matches(".poke-card, .poke-choice-wrap, .dex-card, [class*='card']") && !strongHint) return false;
+
+    return true;
+  }
+
+  function getChoiceRerollControls() {
+    const root = getChoiceArea();
+    const selector = [
+      "button",
+      "a",
+      "[role='button']",
+      "[tabindex]",
+      "input[type='button']",
+      "input[type='submit']",
+      "[class*='reroll']",
+      "[class*='re-roll']",
+      "[id*='reroll']",
+      "[id*='re-roll']",
+      "[aria-label]",
+      "[title]"
+    ].join(",");
+
+    const controls = queryAll(selector, root)
+      .filter((el) => el instanceof Element && isVisible(el) && isRerollControl(el));
+
+    return sortByScreenPosition(uniqueElements(controls)).slice(0, 3);
+  }
+
+  function getChoiceSignature() {
+    return getVisibleChoiceCards()
+      .map((card) => `${getPokemonName(card) || "unknown"}:${isCardShiny(card) ? "shiny" : "normal"}`)
+      .join("|");
+  }
+
+  function getRerollControlDebugRows() {
+    return getChoiceRerollControls().map((el) => ({
+      disabled: isDisabledRerollControl(el),
+      text: getElementText(el),
+      element: describeElement(el)
+    }));
+  }
+
+  async function useChoiceRerollsOnce() {
+    if (!settings.useChoiceRerolls) return 0;
+
+    const controls = getChoiceRerollControls();
+    if (!controls.length) {
+      log("No Pokemon slot reroll controls found.");
+      return 0;
+    }
+
+    let used = 0;
+    for (const control of controls) {
+      if (!runtime.running || runtime.paused) break;
+      if (!isVisible(control) || isDisabledRerollControl(control)) continue;
+      const before = getChoiceSignature();
+      if (!safeClick(control, `Pokemon slot reroll ${used + 1}`)) continue;
+      used += 1;
+      await sleep(500);
+      const after = getChoiceSignature();
+      if (after && after !== before) {
+        log(`Pokemon slot reroll ${used} updated choices.`);
+      }
+    }
+
+    if (used > 0) {
+      await waitForCondition(() => {
+        if (detectCurrentScreen() !== "catch-screen") return null;
+        const cards = getVisibleChoiceCards();
+        return cards.some((card) => getPokemonName(card)) ? cards : null;
+      }, 3000, 150, "Pokemon choices after slot rerolls");
+    }
+
+    return used;
+  }
+
   function getCardDebugRows(cards = getAllPokemonCards()) {
     return cards.map((card) => ({
       name: getPokemonName(card),
@@ -2373,6 +2490,37 @@
     return { kind: "none" };
   }
 
+  function bestChoiceResult(results) {
+    const priority = {
+      target: 3,
+      "non-target-shiny": 2,
+      "normal-target": 1,
+      none: 0
+    };
+    return results
+      .filter(Boolean)
+      .sort((a, b) => (priority[b.kind] || 0) - (priority[a.kind] || 0))[0] || { kind: "none" };
+  }
+
+  function shouldStopForChoiceResult(result) {
+    return result.kind === "target" || (result.kind === "non-target-shiny" && settings.stopOnAnyShiny);
+  }
+
+  function stopForChoiceResult(result) {
+    if (result.kind === "target") {
+      setState(STATES.CATCH_TARGET, `Shiny ${settings.targetPokemon} detected.`);
+      return true;
+    }
+
+    if (result.kind === "non-target-shiny" && settings.stopOnAnyShiny) {
+      highlightCard(result.card);
+      announceFound(`Shiny ${result.name} found in ${runtime.attempts} attempts.`);
+      return true;
+    }
+
+    return false;
+  }
+
   async function catchTargetIfConfigured() {
     const card = runtime.foundCard;
     if (!card) throw new Error("No found target card is available.");
@@ -2729,18 +2877,20 @@
     persistAttempts();
     updateOverlay();
 
-    const result = await inspectChoicesForTarget();
-    if (result.kind === "target") {
-      setState(STATES.CATCH_TARGET, `Shiny ${settings.targetPokemon} detected.`);
-      return;
+    const results = [];
+    const firstResult = await inspectChoicesForTarget();
+    results.push(firstResult);
+    if (shouldStopForChoiceResult(firstResult) && stopForChoiceResult(firstResult)) return;
+
+    const rerollCount = await useChoiceRerollsOnce();
+    if (rerollCount > 0) {
+      const rerolledResult = await inspectChoicesForTarget();
+      results.push(rerolledResult);
+      if (shouldStopForChoiceResult(rerolledResult) && stopForChoiceResult(rerolledResult)) return;
     }
 
+    const result = bestChoiceResult(results);
     if (result.kind === "non-target-shiny") {
-      if (settings.stopOnAnyShiny) {
-        highlightCard(result.card);
-        announceFound(`Shiny ${result.name} found in ${runtime.attempts} attempts.`);
-        return;
-      }
       log(`A Shiny! Too bad it's not ${settings.targetPokemon} :(`);
     } else if (result.kind === "normal-target") {
       log(`${settings.targetPokemon}! Too bad it's not shiny! :(`);
@@ -2841,6 +2991,7 @@
     window.pkHunterDebug = {
       cards: () => getCardDebugRows(),
       catchNodes: () => inspectCatchNodes(),
+      rerolls: () => getRerollControlDebugRows(),
       mapElements: () => inspectMapElements(),
       towerEntrances: () => inspectTowerEntrances(),
       log: () => buildDebugLog(),
@@ -2903,6 +3054,7 @@
       detectedScreen: detectCurrentScreen(),
       towerEntrances: inspectTowerEntrances(),
       catchNodes: inspectCatchNodes(),
+      rerollControls: getRerollControlDebugRows(),
       mapElements: inspectMapElements().slice(0, 80),
       cards: getCardDebugRows(getVisibleChoiceCards()).map((row) => ({
         name: row.name,
