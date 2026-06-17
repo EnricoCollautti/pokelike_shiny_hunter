@@ -1,6 +1,6 @@
 # Pokelike Shiny Hunter
 
-Local Tampermonkey userscript for automating a Kanto Battle Tower shiny hunt on:
+Local Tampermonkey userscript for automating a Battle Tower shiny hunt on:
 
 ```text
 https://pokelike.xyz/*
@@ -28,8 +28,8 @@ You should see a floating panel named `Shiny Hunter - v...`.
 
 1. Open Pokelike.
 2. Click `Start` in the bot panel.
-3. Choose the target Pokemon and starter in the bot panel. The fields suggest Kanto Pokemon names as you type, but still allow custom text.
-4. The bot enters Battle Tower, selects Kanto, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
+3. Choose the Battle Tower region, target Pokemon, and starter in the bot panel.
+4. The bot enters Battle Tower, selects your region, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
 5. If a shiny version of your target appears, the bot stops and alerts you with the attempt count.
 6. If the shiny target does not appear, the bot resets/rerolls and repeats.
 
@@ -38,6 +38,7 @@ Defaults:
 ```text
 Target: Charmander
 Starter: Magnemite
+Region: Kanto
 ```
 
 The small log shows only:
@@ -61,8 +62,9 @@ A Shiny! Too bad it's not <Target> :(
 
 ## Settings
 
-- `Target`: Pokemon to shiny hunt, for example `Charmander`. Start typing to choose from Kanto name suggestions.
-- `Starter`: Battle Tower starter to select, for example `Magnemite`. Start typing to choose from Kanto name suggestions.
+- `Region`: Battle Tower region to run: `Kanto`, `Johto`, `Hoenn`, `Sinnoh`, or `Unova`.
+- `Target`: Pokemon to shiny hunt, for example `Charmander`. Start typing to filter Pokemon introduced in the selected region.
+- `Starter`: Battle Tower starter to select, for example `Magnemite`. Start typing to filter Pokemon introduced in the selected region.
 - `Min delay` / `Max delay`: random wait between major actions, in milliseconds.
 - `Stop after N attempts`: stop after this many checks; `0` means unlimited.
 - `Catch shiny target automatically`: off by default, so you can continue manually after detection.
@@ -70,7 +72,9 @@ A Shiny! Too bad it's not <Target> :(
 - `Dry run mode`: logs what the bot would do without clicking, pressing keys, resetting, or reloading.
 - `Auto resume after reload`: starts automatically when the Pokelike page loads.
 
-The target and starter are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG.targetPokemon` and `CONFIG.starterPokemon`.
+The target and starter picker shows a small sprite thumbnail, the Pokemon name, and type badges. Sprite thumbnails are loaded only for visible picker suggestions so they should not affect the hunt loop.
+
+The region, target, and starter are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG.region`, `CONFIG.targetPokemon`, and `CONFIG.starterPokemon`.
 
 When a shiny target is found, the alert says how many attempts it took. The saved attempt counter is then reset to `0` for the next hunt.
 

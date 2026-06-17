@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.2.0
-// @description  Local UI automation helper for shiny hunting in Pokelike Kanto Battle Tower
+// @version      1.3.0
+// @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
 // @grant        none
@@ -26,13 +26,13 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.2.0";
+  const SCRIPT_VERSION = "1.3.0";
 
   const STATES = {
     IDLE: "IDLE",
     ENTER_MAIN_MENU: "ENTER_MAIN_MENU",
     ENTER_BATTLE_TOWER: "ENTER_BATTLE_TOWER",
-    SELECT_KANTO: "SELECT_KANTO",
+    SELECT_REGION: "SELECT_REGION",
     SELECT_STARTER: "SELECT_STARTER",
     OPEN_FIRST_CATCH_NODE: "OPEN_FIRST_CATCH_NODE",
     WAIT_FOR_POKEMON_CHOICES: "WAIT_FOR_POKEMON_CHOICES",
@@ -45,6 +45,7 @@
   };
 
   const CONFIG = {
+    region: "kanto",
     targetPokemon: "Charmander",
     starterPokemon: "Magnemite",
     minDelayMs: 300,
@@ -57,34 +58,738 @@
     autoResume: false
   };
 
-  const POKEMON_NAME_OPTIONS = [
-    "Bulbasaur", "Ivysaur", "Venusaur", "Charmander", "Charmeleon", "Charizard",
-    "Squirtle", "Wartortle", "Blastoise", "Caterpie", "Metapod", "Butterfree",
-    "Weedle", "Kakuna", "Beedrill", "Pidgey", "Pidgeotto", "Pidgeot",
-    "Rattata", "Raticate", "Spearow", "Fearow", "Ekans", "Arbok",
-    "Pikachu", "Raichu", "Sandshrew", "Sandslash", "Nidoran F", "Nidorina",
-    "Nidoqueen", "Nidoran M", "Nidorino", "Nidoking", "Clefairy", "Clefable",
-    "Vulpix", "Ninetales", "Jigglypuff", "Wigglytuff", "Zubat", "Golbat",
-    "Oddish", "Gloom", "Vileplume", "Paras", "Parasect", "Venonat",
-    "Venomoth", "Diglett", "Dugtrio", "Meowth", "Persian", "Psyduck",
-    "Golduck", "Mankey", "Primeape", "Growlithe", "Arcanine", "Poliwag",
-    "Poliwhirl", "Poliwrath", "Abra", "Kadabra", "Alakazam", "Machop",
-    "Machoke", "Machamp", "Bellsprout", "Weepinbell", "Victreebel", "Tentacool",
-    "Tentacruel", "Geodude", "Graveler", "Golem", "Ponyta", "Rapidash",
-    "Slowpoke", "Slowbro", "Magnemite", "Magneton", "Farfetch'd", "Doduo",
-    "Dodrio", "Seel", "Dewgong", "Grimer", "Muk", "Shellder",
-    "Cloyster", "Gastly", "Haunter", "Gengar", "Onix", "Drowzee",
-    "Hypno", "Krabby", "Kingler", "Voltorb", "Electrode", "Exeggcute",
-    "Exeggutor", "Cubone", "Marowak", "Hitmonlee", "Hitmonchan", "Lickitung",
-    "Koffing", "Weezing", "Rhyhorn", "Rhydon", "Chansey", "Tangela",
-    "Kangaskhan", "Horsea", "Seadra", "Goldeen", "Seaking", "Staryu",
-    "Starmie", "Mr. Mime", "Scyther", "Jynx", "Electabuzz", "Magmar",
-    "Pinsir", "Tauros", "Magikarp", "Gyarados", "Lapras", "Ditto",
-    "Eevee", "Vaporeon", "Jolteon", "Flareon", "Porygon", "Omanyte",
-    "Omastar", "Kabuto", "Kabutops", "Aerodactyl", "Snorlax", "Articuno",
-    "Zapdos", "Moltres", "Dratini", "Dragonair", "Dragonite", "Mewtwo",
-    "Mew"
+  const REGION_DEFINITIONS = [
+    {
+      key: "kanto",
+      label: "Kanto",
+      stageName: "Kanto",
+      pokemon: [
+        [1, "Bulbasaur", "Grass", "Poison"],
+        [2, "Ivysaur", "Grass", "Poison"],
+        [3, "Venusaur", "Grass", "Poison"],
+        [4, "Charmander", "Fire"],
+        [5, "Charmeleon", "Fire"],
+        [6, "Charizard", "Fire", "Flying"],
+        [7, "Squirtle", "Water"],
+        [8, "Wartortle", "Water"],
+        [9, "Blastoise", "Water"],
+        [10, "Caterpie", "Bug"],
+        [11, "Metapod", "Bug"],
+        [12, "Butterfree", "Bug", "Flying"],
+        [13, "Weedle", "Bug", "Poison"],
+        [14, "Kakuna", "Bug", "Poison"],
+        [15, "Beedrill", "Bug", "Poison"],
+        [16, "Pidgey", "Normal", "Flying"],
+        [17, "Pidgeotto", "Normal", "Flying"],
+        [18, "Pidgeot", "Normal", "Flying"],
+        [19, "Rattata", "Normal"],
+        [20, "Raticate", "Normal"],
+        [21, "Spearow", "Normal", "Flying"],
+        [22, "Fearow", "Normal", "Flying"],
+        [23, "Ekans", "Poison"],
+        [24, "Arbok", "Poison"],
+        [25, "Pikachu", "Electric"],
+        [26, "Raichu", "Electric"],
+        [27, "Sandshrew", "Ground"],
+        [28, "Sandslash", "Ground"],
+        [29, "Nidoran F", "Poison"],
+        [30, "Nidorina", "Poison"],
+        [31, "Nidoqueen", "Poison", "Ground"],
+        [32, "Nidoran M", "Poison"],
+        [33, "Nidorino", "Poison"],
+        [34, "Nidoking", "Poison", "Ground"],
+        [35, "Clefairy", "Fairy"],
+        [36, "Clefable", "Fairy"],
+        [37, "Vulpix", "Fire"],
+        [38, "Ninetales", "Fire"],
+        [39, "Jigglypuff", "Normal", "Fairy"],
+        [40, "Wigglytuff", "Normal", "Fairy"],
+        [41, "Zubat", "Poison", "Flying"],
+        [42, "Golbat", "Poison", "Flying"],
+        [43, "Oddish", "Grass", "Poison"],
+        [44, "Gloom", "Grass", "Poison"],
+        [45, "Vileplume", "Grass", "Poison"],
+        [46, "Paras", "Bug", "Grass"],
+        [47, "Parasect", "Bug", "Grass"],
+        [48, "Venonat", "Bug", "Poison"],
+        [49, "Venomoth", "Bug", "Poison"],
+        [50, "Diglett", "Ground"],
+        [51, "Dugtrio", "Ground"],
+        [52, "Meowth", "Normal"],
+        [53, "Persian", "Normal"],
+        [54, "Psyduck", "Water"],
+        [55, "Golduck", "Water"],
+        [56, "Mankey", "Fighting"],
+        [57, "Primeape", "Fighting"],
+        [58, "Growlithe", "Fire"],
+        [59, "Arcanine", "Fire"],
+        [60, "Poliwag", "Water"],
+        [61, "Poliwhirl", "Water"],
+        [62, "Poliwrath", "Water", "Fighting"],
+        [63, "Abra", "Psychic"],
+        [64, "Kadabra", "Psychic"],
+        [65, "Alakazam", "Psychic"],
+        [66, "Machop", "Fighting"],
+        [67, "Machoke", "Fighting"],
+        [68, "Machamp", "Fighting"],
+        [69, "Bellsprout", "Grass", "Poison"],
+        [70, "Weepinbell", "Grass", "Poison"],
+        [71, "Victreebel", "Grass", "Poison"],
+        [72, "Tentacool", "Water", "Poison"],
+        [73, "Tentacruel", "Water", "Poison"],
+        [74, "Geodude", "Rock", "Ground"],
+        [75, "Graveler", "Rock", "Ground"],
+        [76, "Golem", "Rock", "Ground"],
+        [77, "Ponyta", "Fire"],
+        [78, "Rapidash", "Fire"],
+        [79, "Slowpoke", "Water", "Psychic"],
+        [80, "Slowbro", "Water", "Psychic"],
+        [81, "Magnemite", "Electric", "Steel"],
+        [82, "Magneton", "Electric", "Steel"],
+        [83, "Farfetch\u0027d", "Normal", "Flying"],
+        [84, "Doduo", "Normal", "Flying"],
+        [85, "Dodrio", "Normal", "Flying"],
+        [86, "Seel", "Water"],
+        [87, "Dewgong", "Water", "Ice"],
+        [88, "Grimer", "Poison"],
+        [89, "Muk", "Poison"],
+        [90, "Shellder", "Water"],
+        [91, "Cloyster", "Water", "Ice"],
+        [92, "Gastly", "Ghost", "Poison"],
+        [93, "Haunter", "Ghost", "Poison"],
+        [94, "Gengar", "Ghost", "Poison"],
+        [95, "Onix", "Rock", "Ground"],
+        [96, "Drowzee", "Psychic"],
+        [97, "Hypno", "Psychic"],
+        [98, "Krabby", "Water"],
+        [99, "Kingler", "Water"],
+        [100, "Voltorb", "Electric"],
+        [101, "Electrode", "Electric"],
+        [102, "Exeggcute", "Grass", "Psychic"],
+        [103, "Exeggutor", "Grass", "Psychic"],
+        [104, "Cubone", "Ground"],
+        [105, "Marowak", "Ground"],
+        [106, "Hitmonlee", "Fighting"],
+        [107, "Hitmonchan", "Fighting"],
+        [108, "Lickitung", "Normal"],
+        [109, "Koffing", "Poison"],
+        [110, "Weezing", "Poison"],
+        [111, "Rhyhorn", "Ground", "Rock"],
+        [112, "Rhydon", "Ground", "Rock"],
+        [113, "Chansey", "Normal"],
+        [114, "Tangela", "Grass"],
+        [115, "Kangaskhan", "Normal"],
+        [116, "Horsea", "Water"],
+        [117, "Seadra", "Water"],
+        [118, "Goldeen", "Water"],
+        [119, "Seaking", "Water"],
+        [120, "Staryu", "Water"],
+        [121, "Starmie", "Water", "Psychic"],
+        [122, "Mr. Mime", "Psychic", "Fairy"],
+        [123, "Scyther", "Bug", "Flying"],
+        [124, "Jynx", "Ice", "Psychic"],
+        [125, "Electabuzz", "Electric"],
+        [126, "Magmar", "Fire"],
+        [127, "Pinsir", "Bug"],
+        [128, "Tauros", "Normal"],
+        [129, "Magikarp", "Water"],
+        [130, "Gyarados", "Water", "Flying"],
+        [131, "Lapras", "Water", "Ice"],
+        [132, "Ditto", "Normal"],
+        [133, "Eevee", "Normal"],
+        [134, "Vaporeon", "Water"],
+        [135, "Jolteon", "Electric"],
+        [136, "Flareon", "Fire"],
+        [137, "Porygon", "Normal"],
+        [138, "Omanyte", "Rock", "Water"],
+        [139, "Omastar", "Rock", "Water"],
+        [140, "Kabuto", "Rock", "Water"],
+        [141, "Kabutops", "Rock", "Water"],
+        [142, "Aerodactyl", "Rock", "Flying"],
+        [143, "Snorlax", "Normal"],
+        [144, "Articuno", "Ice", "Flying"],
+        [145, "Zapdos", "Electric", "Flying"],
+        [146, "Moltres", "Fire", "Flying"],
+        [147, "Dratini", "Dragon"],
+        [148, "Dragonair", "Dragon"],
+        [149, "Dragonite", "Dragon", "Flying"],
+        [150, "Mewtwo", "Psychic"],
+        [151, "Mew", "Psychic"]
+      ]
+    },
+    {
+      key: "johto",
+      label: "Johto",
+      stageName: "Johto",
+      pokemon: [
+        [152, "Chikorita", "Grass"],
+        [153, "Bayleef", "Grass"],
+        [154, "Meganium", "Grass"],
+        [155, "Cyndaquil", "Fire"],
+        [156, "Quilava", "Fire"],
+        [157, "Typhlosion", "Fire"],
+        [158, "Totodile", "Water"],
+        [159, "Croconaw", "Water"],
+        [160, "Feraligatr", "Water"],
+        [161, "Sentret", "Normal"],
+        [162, "Furret", "Normal"],
+        [163, "Hoothoot", "Normal", "Flying"],
+        [164, "Noctowl", "Normal", "Flying"],
+        [165, "Ledyba", "Bug", "Flying"],
+        [166, "Ledian", "Bug", "Flying"],
+        [167, "Spinarak", "Bug", "Poison"],
+        [168, "Ariados", "Bug", "Poison"],
+        [169, "Crobat", "Poison", "Flying"],
+        [170, "Chinchou", "Water", "Electric"],
+        [171, "Lanturn", "Water", "Electric"],
+        [172, "Pichu", "Electric"],
+        [173, "Cleffa", "Fairy"],
+        [174, "Igglybuff", "Normal", "Fairy"],
+        [175, "Togepi", "Fairy"],
+        [176, "Togetic", "Fairy", "Flying"],
+        [177, "Natu", "Psychic", "Flying"],
+        [178, "Xatu", "Psychic", "Flying"],
+        [179, "Mareep", "Electric"],
+        [180, "Flaaffy", "Electric"],
+        [181, "Ampharos", "Electric"],
+        [182, "Bellossom", "Grass"],
+        [183, "Marill", "Water", "Fairy"],
+        [184, "Azumarill", "Water", "Fairy"],
+        [185, "Sudowoodo", "Rock"],
+        [186, "Politoed", "Water"],
+        [187, "Hoppip", "Grass", "Flying"],
+        [188, "Skiploom", "Grass", "Flying"],
+        [189, "Jumpluff", "Grass", "Flying"],
+        [190, "Aipom", "Normal"],
+        [191, "Sunkern", "Grass"],
+        [192, "Sunflora", "Grass"],
+        [193, "Yanma", "Bug", "Flying"],
+        [194, "Wooper", "Water", "Ground"],
+        [195, "Quagsire", "Water", "Ground"],
+        [196, "Espeon", "Psychic"],
+        [197, "Umbreon", "Dark"],
+        [198, "Murkrow", "Dark", "Flying"],
+        [199, "Slowking", "Water", "Psychic"],
+        [200, "Misdreavus", "Ghost"],
+        [201, "Unown", "Psychic"],
+        [202, "Wobbuffet", "Psychic"],
+        [203, "Girafarig", "Normal", "Psychic"],
+        [204, "Pineco", "Bug"],
+        [205, "Forretress", "Bug", "Steel"],
+        [206, "Dunsparce", "Normal"],
+        [207, "Gligar", "Ground", "Flying"],
+        [208, "Steelix", "Steel", "Ground"],
+        [209, "Snubbull", "Fairy"],
+        [210, "Granbull", "Fairy"],
+        [211, "Qwilfish", "Water", "Poison"],
+        [212, "Scizor", "Bug", "Steel"],
+        [213, "Shuckle", "Bug", "Rock"],
+        [214, "Heracross", "Bug", "Fighting"],
+        [215, "Sneasel", "Dark", "Ice"],
+        [216, "Teddiursa", "Normal"],
+        [217, "Ursaring", "Normal"],
+        [218, "Slugma", "Fire"],
+        [219, "Magcargo", "Fire", "Rock"],
+        [220, "Swinub", "Ice", "Ground"],
+        [221, "Piloswine", "Ice", "Ground"],
+        [222, "Corsola", "Water", "Rock"],
+        [223, "Remoraid", "Water"],
+        [224, "Octillery", "Water"],
+        [225, "Delibird", "Ice", "Flying"],
+        [226, "Mantine", "Water", "Flying"],
+        [227, "Skarmory", "Steel", "Flying"],
+        [228, "Houndour", "Dark", "Fire"],
+        [229, "Houndoom", "Dark", "Fire"],
+        [230, "Kingdra", "Water", "Dragon"],
+        [231, "Phanpy", "Ground"],
+        [232, "Donphan", "Ground"],
+        [233, "Porygon2", "Normal"],
+        [234, "Stantler", "Normal"],
+        [235, "Smeargle", "Normal"],
+        [236, "Tyrogue", "Fighting"],
+        [237, "Hitmontop", "Fighting"],
+        [238, "Smoochum", "Ice", "Psychic"],
+        [239, "Elekid", "Electric"],
+        [240, "Magby", "Fire"],
+        [241, "Miltank", "Normal"],
+        [242, "Blissey", "Normal"],
+        [243, "Raikou", "Electric"],
+        [244, "Entei", "Fire"],
+        [245, "Suicune", "Water"],
+        [246, "Larvitar", "Rock", "Ground"],
+        [247, "Pupitar", "Rock", "Ground"],
+        [248, "Tyranitar", "Rock", "Dark"],
+        [249, "Lugia", "Psychic", "Flying"],
+        [250, "Ho-Oh", "Fire", "Flying"],
+        [251, "Celebi", "Psychic", "Grass"]
+      ]
+    },
+    {
+      key: "hoenn",
+      label: "Hoenn",
+      stageName: "Hoenn",
+      pokemon: [
+        [252, "Treecko", "Grass"],
+        [253, "Grovyle", "Grass"],
+        [254, "Sceptile", "Grass"],
+        [255, "Torchic", "Fire"],
+        [256, "Combusken", "Fire", "Fighting"],
+        [257, "Blaziken", "Fire", "Fighting"],
+        [258, "Mudkip", "Water"],
+        [259, "Marshtomp", "Water", "Ground"],
+        [260, "Swampert", "Water", "Ground"],
+        [261, "Poochyena", "Dark"],
+        [262, "Mightyena", "Dark"],
+        [263, "Zigzagoon", "Normal"],
+        [264, "Linoone", "Normal"],
+        [265, "Wurmple", "Bug"],
+        [266, "Silcoon", "Bug"],
+        [267, "Beautifly", "Bug", "Flying"],
+        [268, "Cascoon", "Bug"],
+        [269, "Dustox", "Bug", "Poison"],
+        [270, "Lotad", "Water", "Grass"],
+        [271, "Lombre", "Water", "Grass"],
+        [272, "Ludicolo", "Water", "Grass"],
+        [273, "Seedot", "Grass"],
+        [274, "Nuzleaf", "Grass", "Dark"],
+        [275, "Shiftry", "Grass", "Dark"],
+        [276, "Taillow", "Normal", "Flying"],
+        [277, "Swellow", "Normal", "Flying"],
+        [278, "Wingull", "Water", "Flying"],
+        [279, "Pelipper", "Water", "Flying"],
+        [280, "Ralts", "Psychic", "Fairy"],
+        [281, "Kirlia", "Psychic", "Fairy"],
+        [282, "Gardevoir", "Psychic", "Fairy"],
+        [283, "Surskit", "Bug", "Water"],
+        [284, "Masquerain", "Bug", "Flying"],
+        [285, "Shroomish", "Grass"],
+        [286, "Breloom", "Grass", "Fighting"],
+        [287, "Slakoth", "Normal"],
+        [288, "Vigoroth", "Normal"],
+        [289, "Slaking", "Normal"],
+        [290, "Nincada", "Bug", "Ground"],
+        [291, "Ninjask", "Bug", "Flying"],
+        [292, "Shedinja", "Bug", "Ghost"],
+        [293, "Whismur", "Normal"],
+        [294, "Loudred", "Normal"],
+        [295, "Exploud", "Normal"],
+        [296, "Makuhita", "Fighting"],
+        [297, "Hariyama", "Fighting"],
+        [298, "Azurill", "Normal", "Fairy"],
+        [299, "Nosepass", "Rock"],
+        [300, "Skitty", "Normal"],
+        [301, "Delcatty", "Normal"],
+        [302, "Sableye", "Dark", "Ghost"],
+        [303, "Mawile", "Steel", "Fairy"],
+        [304, "Aron", "Steel", "Rock"],
+        [305, "Lairon", "Steel", "Rock"],
+        [306, "Aggron", "Steel", "Rock"],
+        [307, "Meditite", "Fighting", "Psychic"],
+        [308, "Medicham", "Fighting", "Psychic"],
+        [309, "Electrike", "Electric"],
+        [310, "Manectric", "Electric"],
+        [311, "Plusle", "Electric"],
+        [312, "Minun", "Electric"],
+        [313, "Volbeat", "Bug"],
+        [314, "Illumise", "Bug"],
+        [315, "Roselia", "Grass", "Poison"],
+        [316, "Gulpin", "Poison"],
+        [317, "Swalot", "Poison"],
+        [318, "Carvanha", "Water", "Dark"],
+        [319, "Sharpedo", "Water", "Dark"],
+        [320, "Wailmer", "Water"],
+        [321, "Wailord", "Water"],
+        [322, "Numel", "Fire", "Ground"],
+        [323, "Camerupt", "Fire", "Ground"],
+        [324, "Torkoal", "Fire"],
+        [325, "Spoink", "Psychic"],
+        [326, "Grumpig", "Psychic"],
+        [327, "Spinda", "Normal"],
+        [328, "Trapinch", "Ground"],
+        [329, "Vibrava", "Ground", "Dragon"],
+        [330, "Flygon", "Ground", "Dragon"],
+        [331, "Cacnea", "Grass"],
+        [332, "Cacturne", "Grass", "Dark"],
+        [333, "Swablu", "Normal", "Flying"],
+        [334, "Altaria", "Dragon", "Flying"],
+        [335, "Zangoose", "Normal"],
+        [336, "Seviper", "Poison"],
+        [337, "Lunatone", "Rock", "Psychic"],
+        [338, "Solrock", "Rock", "Psychic"],
+        [339, "Barboach", "Water", "Ground"],
+        [340, "Whiscash", "Water", "Ground"],
+        [341, "Corphish", "Water"],
+        [342, "Crawdaunt", "Water", "Dark"],
+        [343, "Baltoy", "Ground", "Psychic"],
+        [344, "Claydol", "Ground", "Psychic"],
+        [345, "Lileep", "Rock", "Grass"],
+        [346, "Cradily", "Rock", "Grass"],
+        [347, "Anorith", "Rock", "Bug"],
+        [348, "Armaldo", "Rock", "Bug"],
+        [349, "Feebas", "Water"],
+        [350, "Milotic", "Water"],
+        [351, "Castform", "Normal"],
+        [352, "Kecleon", "Normal"],
+        [353, "Shuppet", "Ghost"],
+        [354, "Banette", "Ghost"],
+        [355, "Duskull", "Ghost"],
+        [356, "Dusclops", "Ghost"],
+        [357, "Tropius", "Grass", "Flying"],
+        [358, "Chimecho", "Psychic"],
+        [359, "Absol", "Dark"],
+        [360, "Wynaut", "Psychic"],
+        [361, "Snorunt", "Ice"],
+        [362, "Glalie", "Ice"],
+        [363, "Spheal", "Ice", "Water"],
+        [364, "Sealeo", "Ice", "Water"],
+        [365, "Walrein", "Ice", "Water"],
+        [366, "Clamperl", "Water"],
+        [367, "Huntail", "Water"],
+        [368, "Gorebyss", "Water"],
+        [369, "Relicanth", "Water", "Rock"],
+        [370, "Luvdisc", "Water"],
+        [371, "Bagon", "Dragon"],
+        [372, "Shelgon", "Dragon"],
+        [373, "Salamence", "Dragon", "Flying"],
+        [374, "Beldum", "Steel", "Psychic"],
+        [375, "Metang", "Steel", "Psychic"],
+        [376, "Metagross", "Steel", "Psychic"],
+        [377, "Regirock", "Rock"],
+        [378, "Regice", "Ice"],
+        [379, "Registeel", "Steel"],
+        [380, "Latias", "Dragon", "Psychic"],
+        [381, "Latios", "Dragon", "Psychic"],
+        [382, "Kyogre", "Water"],
+        [383, "Groudon", "Ground"],
+        [384, "Rayquaza", "Dragon", "Flying"],
+        [385, "Jirachi", "Steel", "Psychic"],
+        [386, "Deoxys", "Psychic"]
+      ]
+    },
+    {
+      key: "sinnoh",
+      label: "Sinnoh",
+      stageName: "Sinnoh",
+      pokemon: [
+        [387, "Turtwig", "Grass"],
+        [388, "Grotle", "Grass"],
+        [389, "Torterra", "Grass", "Ground"],
+        [390, "Chimchar", "Fire"],
+        [391, "Monferno", "Fire", "Fighting"],
+        [392, "Infernape", "Fire", "Fighting"],
+        [393, "Piplup", "Water"],
+        [394, "Prinplup", "Water"],
+        [395, "Empoleon", "Water", "Steel"],
+        [396, "Starly", "Normal", "Flying"],
+        [397, "Staravia", "Normal", "Flying"],
+        [398, "Staraptor", "Normal", "Flying"],
+        [399, "Bidoof", "Normal"],
+        [400, "Bibarel", "Normal", "Water"],
+        [401, "Kricketot", "Bug"],
+        [402, "Kricketune", "Bug"],
+        [403, "Shinx", "Electric"],
+        [404, "Luxio", "Electric"],
+        [405, "Luxray", "Electric"],
+        [406, "Budew", "Grass", "Poison"],
+        [407, "Roserade", "Grass", "Poison"],
+        [408, "Cranidos", "Rock"],
+        [409, "Rampardos", "Rock"],
+        [410, "Shieldon", "Rock", "Steel"],
+        [411, "Bastiodon", "Rock", "Steel"],
+        [412, "Burmy", "Bug"],
+        [413, "Wormadam", "Bug", "Grass"],
+        [414, "Mothim", "Bug", "Flying"],
+        [415, "Combee", "Bug", "Flying"],
+        [416, "Vespiquen", "Bug", "Flying"],
+        [417, "Pachirisu", "Electric"],
+        [418, "Buizel", "Water"],
+        [419, "Floatzel", "Water"],
+        [420, "Cherubi", "Grass"],
+        [421, "Cherrim", "Grass"],
+        [422, "Shellos", "Water"],
+        [423, "Gastrodon", "Water", "Ground"],
+        [424, "Ambipom", "Normal"],
+        [425, "Drifloon", "Ghost", "Flying"],
+        [426, "Drifblim", "Ghost", "Flying"],
+        [427, "Buneary", "Normal"],
+        [428, "Lopunny", "Normal"],
+        [429, "Mismagius", "Ghost"],
+        [430, "Honchkrow", "Dark", "Flying"],
+        [431, "Glameow", "Normal"],
+        [432, "Purugly", "Normal"],
+        [433, "Chingling", "Psychic"],
+        [434, "Stunky", "Poison", "Dark"],
+        [435, "Skuntank", "Poison", "Dark"],
+        [436, "Bronzor", "Steel", "Psychic"],
+        [437, "Bronzong", "Steel", "Psychic"],
+        [438, "Bonsly", "Rock"],
+        [439, "Mime Jr.", "Psychic", "Fairy"],
+        [440, "Happiny", "Normal"],
+        [441, "Chatot", "Normal", "Flying"],
+        [442, "Spiritomb", "Ghost", "Dark"],
+        [443, "Gible", "Dragon", "Ground"],
+        [444, "Gabite", "Dragon", "Ground"],
+        [445, "Garchomp", "Dragon", "Ground"],
+        [446, "Munchlax", "Normal"],
+        [447, "Riolu", "Fighting"],
+        [448, "Lucario", "Fighting", "Steel"],
+        [449, "Hippopotas", "Ground"],
+        [450, "Hippowdon", "Ground"],
+        [451, "Skorupi", "Poison", "Bug"],
+        [452, "Drapion", "Poison", "Dark"],
+        [453, "Croagunk", "Poison", "Fighting"],
+        [454, "Toxicroak", "Poison", "Fighting"],
+        [455, "Carnivine", "Grass"],
+        [456, "Finneon", "Water"],
+        [457, "Lumineon", "Water"],
+        [458, "Mantyke", "Water", "Flying"],
+        [459, "Snover", "Grass", "Ice"],
+        [460, "Abomasnow", "Grass", "Ice"],
+        [461, "Weavile", "Dark", "Ice"],
+        [462, "Magnezone", "Electric", "Steel"],
+        [463, "Lickilicky", "Normal"],
+        [464, "Rhyperior", "Ground", "Rock"],
+        [465, "Tangrowth", "Grass"],
+        [466, "Electivire", "Electric"],
+        [467, "Magmortar", "Fire"],
+        [468, "Togekiss", "Fairy", "Flying"],
+        [469, "Yanmega", "Bug", "Flying"],
+        [470, "Leafeon", "Grass"],
+        [471, "Glaceon", "Ice"],
+        [472, "Gliscor", "Ground", "Flying"],
+        [473, "Mamoswine", "Ice", "Ground"],
+        [474, "Porygon-Z", "Normal"],
+        [475, "Gallade", "Psychic", "Fighting"],
+        [476, "Probopass", "Rock", "Steel"],
+        [477, "Dusknoir", "Ghost"],
+        [478, "Froslass", "Ice", "Ghost"],
+        [479, "Rotom", "Electric", "Ghost"],
+        [480, "Uxie", "Psychic"],
+        [481, "Mesprit", "Psychic"],
+        [482, "Azelf", "Psychic"],
+        [483, "Dialga", "Steel", "Dragon"],
+        [484, "Palkia", "Water", "Dragon"],
+        [485, "Heatran", "Fire", "Steel"],
+        [486, "Regigigas", "Normal"],
+        [487, "Giratina", "Ghost", "Dragon"],
+        [488, "Cresselia", "Psychic"],
+        [489, "Phione", "Water"],
+        [490, "Manaphy", "Water"],
+        [491, "Darkrai", "Dark"],
+        [492, "Shaymin", "Grass"],
+        [493, "Arceus", "Normal"]
+      ]
+    },
+    {
+      key: "unova",
+      label: "Unova",
+      stageName: "Unova",
+      pokemon: [
+        [494, "Victini", "Psychic", "Fire"],
+        [495, "Snivy", "Grass"],
+        [496, "Servine", "Grass"],
+        [497, "Serperior", "Grass"],
+        [498, "Tepig", "Fire"],
+        [499, "Pignite", "Fire", "Fighting"],
+        [500, "Emboar", "Fire", "Fighting"],
+        [501, "Oshawott", "Water"],
+        [502, "Dewott", "Water"],
+        [503, "Samurott", "Water"],
+        [504, "Patrat", "Normal"],
+        [505, "Watchog", "Normal"],
+        [506, "Lillipup", "Normal"],
+        [507, "Herdier", "Normal"],
+        [508, "Stoutland", "Normal"],
+        [509, "Purrloin", "Dark"],
+        [510, "Liepard", "Dark"],
+        [511, "Pansage", "Grass"],
+        [512, "Simisage", "Grass"],
+        [513, "Pansear", "Fire"],
+        [514, "Simisear", "Fire"],
+        [515, "Panpour", "Water"],
+        [516, "Simipour", "Water"],
+        [517, "Munna", "Psychic"],
+        [518, "Musharna", "Psychic"],
+        [519, "Pidove", "Normal", "Flying"],
+        [520, "Tranquill", "Normal", "Flying"],
+        [521, "Unfezant", "Normal", "Flying"],
+        [522, "Blitzle", "Electric"],
+        [523, "Zebstrika", "Electric"],
+        [524, "Roggenrola", "Rock"],
+        [525, "Boldore", "Rock"],
+        [526, "Gigalith", "Rock"],
+        [527, "Woobat", "Psychic", "Flying"],
+        [528, "Swoobat", "Psychic", "Flying"],
+        [529, "Drilbur", "Ground"],
+        [530, "Excadrill", "Ground", "Steel"],
+        [531, "Audino", "Normal"],
+        [532, "Timburr", "Fighting"],
+        [533, "Gurdurr", "Fighting"],
+        [534, "Conkeldurr", "Fighting"],
+        [535, "Tympole", "Water"],
+        [536, "Palpitoad", "Water", "Ground"],
+        [537, "Seismitoad", "Water", "Ground"],
+        [538, "Throh", "Fighting"],
+        [539, "Sawk", "Fighting"],
+        [540, "Sewaddle", "Bug", "Grass"],
+        [541, "Swadloon", "Bug", "Grass"],
+        [542, "Leavanny", "Bug", "Grass"],
+        [543, "Venipede", "Bug", "Poison"],
+        [544, "Whirlipede", "Bug", "Poison"],
+        [545, "Scolipede", "Bug", "Poison"],
+        [546, "Cottonee", "Grass", "Fairy"],
+        [547, "Whimsicott", "Grass", "Fairy"],
+        [548, "Petilil", "Grass"],
+        [549, "Lilligant", "Grass"],
+        [550, "Basculin", "Water"],
+        [551, "Sandile", "Ground", "Dark"],
+        [552, "Krokorok", "Ground", "Dark"],
+        [553, "Krookodile", "Ground", "Dark"],
+        [554, "Darumaka", "Fire"],
+        [555, "Darmanitan", "Fire"],
+        [556, "Maractus", "Grass"],
+        [557, "Dwebble", "Bug", "Rock"],
+        [558, "Crustle", "Bug", "Rock"],
+        [559, "Scraggy", "Dark", "Fighting"],
+        [560, "Scrafty", "Dark", "Fighting"],
+        [561, "Sigilyph", "Psychic", "Flying"],
+        [562, "Yamask", "Ghost"],
+        [563, "Cofagrigus", "Ghost"],
+        [564, "Tirtouga", "Water", "Rock"],
+        [565, "Carracosta", "Water", "Rock"],
+        [566, "Archen", "Rock", "Flying"],
+        [567, "Archeops", "Rock", "Flying"],
+        [568, "Trubbish", "Poison"],
+        [569, "Garbodor", "Poison"],
+        [570, "Zorua", "Dark"],
+        [571, "Zoroark", "Dark"],
+        [572, "Minccino", "Normal"],
+        [573, "Cinccino", "Normal"],
+        [574, "Gothita", "Psychic"],
+        [575, "Gothorita", "Psychic"],
+        [576, "Gothitelle", "Psychic"],
+        [577, "Solosis", "Psychic"],
+        [578, "Duosion", "Psychic"],
+        [579, "Reuniclus", "Psychic"],
+        [580, "Ducklett", "Water", "Flying"],
+        [581, "Swanna", "Water", "Flying"],
+        [582, "Vanillite", "Ice"],
+        [583, "Vanillish", "Ice"],
+        [584, "Vanilluxe", "Ice"],
+        [585, "Deerling", "Normal", "Grass"],
+        [586, "Sawsbuck", "Normal", "Grass"],
+        [587, "Emolga", "Electric", "Flying"],
+        [588, "Karrablast", "Bug"],
+        [589, "Escavalier", "Bug", "Steel"],
+        [590, "Foongus", "Grass", "Poison"],
+        [591, "Amoonguss", "Grass", "Poison"],
+        [592, "Frillish", "Water", "Ghost"],
+        [593, "Jellicent", "Water", "Ghost"],
+        [594, "Alomomola", "Water"],
+        [595, "Joltik", "Bug", "Electric"],
+        [596, "Galvantula", "Bug", "Electric"],
+        [597, "Ferroseed", "Grass", "Steel"],
+        [598, "Ferrothorn", "Grass", "Steel"],
+        [599, "Klink", "Steel"],
+        [600, "Klang", "Steel"],
+        [601, "Klinklang", "Steel"],
+        [602, "Tynamo", "Electric"],
+        [603, "Eelektrik", "Electric"],
+        [604, "Eelektross", "Electric"],
+        [605, "Elgyem", "Psychic"],
+        [606, "Beheeyem", "Psychic"],
+        [607, "Litwick", "Ghost", "Fire"],
+        [608, "Lampent", "Ghost", "Fire"],
+        [609, "Chandelure", "Ghost", "Fire"],
+        [610, "Axew", "Dragon"],
+        [611, "Fraxure", "Dragon"],
+        [612, "Haxorus", "Dragon"],
+        [613, "Cubchoo", "Ice"],
+        [614, "Beartic", "Ice"],
+        [615, "Cryogonal", "Ice"],
+        [616, "Shelmet", "Bug"],
+        [617, "Accelgor", "Bug"],
+        [618, "Stunfisk", "Ground", "Electric"],
+        [619, "Mienfoo", "Fighting"],
+        [620, "Mienshao", "Fighting"],
+        [621, "Druddigon", "Dragon"],
+        [622, "Golett", "Ground", "Ghost"],
+        [623, "Golurk", "Ground", "Ghost"],
+        [624, "Pawniard", "Dark", "Steel"],
+        [625, "Bisharp", "Dark", "Steel"],
+        [626, "Bouffalant", "Normal"],
+        [627, "Rufflet", "Normal", "Flying"],
+        [628, "Braviary", "Normal", "Flying"],
+        [629, "Vullaby", "Dark", "Flying"],
+        [630, "Mandibuzz", "Dark", "Flying"],
+        [631, "Heatmor", "Fire"],
+        [632, "Durant", "Bug", "Steel"],
+        [633, "Deino", "Dark", "Dragon"],
+        [634, "Zweilous", "Dark", "Dragon"],
+        [635, "Hydreigon", "Dark", "Dragon"],
+        [636, "Larvesta", "Bug", "Fire"],
+        [637, "Volcarona", "Bug", "Fire"],
+        [638, "Cobalion", "Steel", "Fighting"],
+        [639, "Terrakion", "Rock", "Fighting"],
+        [640, "Virizion", "Grass", "Fighting"],
+        [641, "Tornadus", "Flying"],
+        [642, "Thundurus", "Electric", "Flying"],
+        [643, "Reshiram", "Dragon", "Fire"],
+        [644, "Zekrom", "Dragon", "Electric"],
+        [645, "Landorus", "Ground", "Flying"],
+        [646, "Kyurem", "Dragon", "Ice"],
+        [647, "Keldeo", "Water", "Fighting"],
+        [648, "Meloetta", "Normal", "Psychic"],
+        [649, "Genesect", "Bug", "Steel"]
+      ]
+    }
   ];
+
+  const REGION_KEYS = REGION_DEFINITIONS.map((region) => region.key);
+
+  const TYPE_COLORS = {
+    Normal: ["#a8a878", "#f8f8f8"],
+    Fire: ["#f08030", "#111827"],
+    Water: ["#6890f0", "#f8fafc"],
+    Electric: ["#f8d030", "#111827"],
+    Grass: ["#78c850", "#111827"],
+    Ice: ["#98d8d8", "#111827"],
+    Fighting: ["#c03028", "#f8fafc"],
+    Poison: ["#a040a0", "#f8fafc"],
+    Ground: ["#e0c068", "#111827"],
+    Flying: ["#a890f0", "#111827"],
+    Psychic: ["#f85888", "#f8fafc"],
+    Bug: ["#a8b820", "#111827"],
+    Rock: ["#b8a038", "#f8fafc"],
+    Ghost: ["#705898", "#f8fafc"],
+    Dragon: ["#7038f8", "#f8fafc"],
+    Dark: ["#705848", "#f8fafc"],
+    Steel: ["#b8b8d0", "#111827"],
+    Fairy: ["#ee99ac", "#111827"]
+  };
+
+  const REGIONS = REGION_DEFINITIONS.map((region) => ({
+    ...region,
+    pokemon: region.pokemon.map(([id, name, ...types]) => ({ id, name, types }))
+  }));
+
+  const REGION_BY_KEY = new Map(REGIONS.map((region) => [region.key, region]));
+
+  const REGION_DEFAULT_POKEMON = {
+    kanto: "Charmander",
+    johto: "Chikorita",
+    hoenn: "Treecko",
+    sinnoh: "Turtwig",
+    unova: "Snivy"
+  };
+
+  const REGION_DEFAULT_STARTER = {
+    kanto: "Magnemite",
+    johto: "Chikorita",
+    hoenn: "Treecko",
+    sinnoh: "Turtwig",
+    unova: "Snivy"
+  };
 
   const SELECTORS = {
     pokemonCards: [
@@ -128,7 +833,7 @@
   const STATE_TIMEOUTS = {
     [STATES.ENTER_MAIN_MENU]: 12000,
     [STATES.ENTER_BATTLE_TOWER]: 16000,
-    [STATES.SELECT_KANTO]: 22000,
+    [STATES.SELECT_REGION]: 22000,
     [STATES.SELECT_STARTER]: 16000,
     [STATES.OPEN_FIRST_CATCH_NODE]: 25000,
     [STATES.WAIT_FOR_POKEMON_CHOICES]: 18000,
@@ -194,12 +899,60 @@
     }
   }
 
+  function readRegion(name, fallback) {
+    try {
+      return normalizeRegionKey(localStorage.getItem(storageKey(name)) || fallback);
+    } catch (error) {
+      return normalizeRegionKey(fallback);
+    }
+  }
+
   function sanitizePokemonName(value) {
     return String(value || "")
       .replace(/[^A-Za-z0-9 .'-]/g, "")
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 32);
+  }
+
+  function normalizeRegionKey(value) {
+    const key = String(value || "").toLowerCase().trim();
+    return REGION_KEYS.includes(key) ? key : CONFIG.region;
+  }
+
+  function selectedRegion() {
+    return REGION_BY_KEY.get(normalizeRegionKey(settings.region)) || REGION_BY_KEY.get(CONFIG.region);
+  }
+
+  function getRegionPokemon(regionKey = settings.region) {
+    const region = REGION_BY_KEY.get(normalizeRegionKey(regionKey)) || REGION_BY_KEY.get(CONFIG.region);
+    return region ? region.pokemon : [];
+  }
+
+  function findPokemonOption(name, regionKey = settings.region) {
+    const target = normalizeForCompare(name);
+    if (!target) return null;
+    return getRegionPokemon(regionKey).find((pokemon) => normalizeForCompare(pokemon.name) === target) || null;
+  }
+
+  function defaultPokemonForRegion(regionKey = settings.region, settingName = "targetPokemon") {
+    const options = getRegionPokemon(regionKey);
+    const key = normalizeRegionKey(regionKey);
+    const preferred = settingName === "starterPokemon" ? REGION_DEFAULT_STARTER[key] : REGION_DEFAULT_POKEMON[key];
+    const preferredOption = preferred && options.find((pokemon) => normalizeForCompare(pokemon.name) === normalizeForCompare(preferred));
+    if (preferredOption) return preferredOption.name;
+    return options[0] ? options[0].name : CONFIG.targetPokemon;
+  }
+
+  function pokemonSpriteUrl(pokemon) {
+    return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.id}.png`;
+  }
+
+  function renderTypeBadges(types) {
+    return types.map((type) => {
+      const colors = TYPE_COLORS[type] || ["#64748b", "#f8fafc"];
+      return `<span class="pkh-type" style="--pkh-type-bg:${escapeHtml(colors[0])};--pkh-type-fg:${escapeHtml(colors[1])}">${escapeHtml(type.toUpperCase())}</span>`;
+    }).join("");
   }
 
   function writeStorage(name, value) {
@@ -212,6 +965,7 @@
 
   function loadSettings() {
     return {
+      region: readRegion("region", CONFIG.region),
       targetPokemon: readString("targetPokemon", CONFIG.targetPokemon),
       starterPokemon: readString("starterPokemon", CONFIG.starterPokemon),
       minDelayMs: readNumber("minDelayMs", CONFIG.minDelayMs, 0, 60000),
@@ -225,6 +979,7 @@
   }
 
   function persistSettings() {
+    settings.region = normalizeRegionKey(settings.region);
     settings.targetPokemon = sanitizePokemonName(settings.targetPokemon) || CONFIG.targetPokemon;
     settings.starterPokemon = sanitizePokemonName(settings.starterPokemon) || CONFIG.starterPokemon;
     const minDelay = Math.max(0, Number(settings.minDelayMs) || CONFIG.minDelayMs);
@@ -233,6 +988,7 @@
     settings.maxDelayMs = Math.max(minDelay, maxDelay);
     settings.stopAfterAttempts = Math.max(0, Math.floor(Number(settings.stopAfterAttempts) || 0));
 
+    writeStorage("region", settings.region);
     writeStorage("targetPokemon", settings.targetPokemon);
     writeStorage("starterPokemon", settings.starterPokemon);
     writeStorage("minDelayMs", settings.minDelayMs);
@@ -382,6 +1138,7 @@
         padding: 5px 7px;
         font: inherit;
       }
+      #${OVERLAY_ID} select,
       #${OVERLAY_ID} input[type="text"] {
         width: 130px;
         border: 1px solid #475569;
@@ -390,6 +1147,95 @@
         color: #f8fafc;
         padding: 5px 7px;
         font: inherit;
+      }
+      #${OVERLAY_ID} select {
+        width: 140px;
+      }
+      #${OVERLAY_ID} .pkh-picker-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      #${OVERLAY_ID} .pkh-picker {
+        position: relative;
+        display: grid;
+        gap: 4px;
+      }
+      #${OVERLAY_ID} .pkh-picker label {
+        display: block;
+      }
+      #${OVERLAY_ID} .pkh-picker input[type="text"] {
+        width: 100%;
+      }
+      #${OVERLAY_ID} .pkh-picker-menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 2147483647;
+        max-height: 240px;
+        overflow: auto;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        background: #020617;
+        box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+      }
+      #${OVERLAY_ID} .pkh-picker-menu[data-open="true"] {
+        display: block;
+      }
+      #${OVERLAY_ID} .pkh-picker-option {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 24px minmax(48px, 1fr) max-content;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 6px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        text-align: left;
+      }
+      #${OVERLAY_ID} .pkh-picker-option:hover,
+      #${OVERLAY_ID} .pkh-picker-option:focus {
+        background: #1e293b;
+      }
+      #${OVERLAY_ID} .pkh-pokemon-sprite {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+      #${OVERLAY_ID} .pkh-pokemon-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: #f8fafc;
+      }
+      #${OVERLAY_ID} .pkh-type-list {
+        display: flex;
+        gap: 3px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      #${OVERLAY_ID} .pkh-type {
+        display: inline-block;
+        min-width: 29px;
+        padding: 2px 4px;
+        border-radius: 2px;
+        background: var(--pkh-type-bg);
+        color: var(--pkh-type-fg);
+        font-size: 7px;
+        font-weight: 800;
+        line-height: 1.1;
+        text-align: center;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+      }
+      #${OVERLAY_ID} .pkh-picker-empty {
+        padding: 8px;
+        color: #94a3b8;
+        font-size: 12px;
       }
       #${OVERLAY_ID} label {
         display: flex;
@@ -432,6 +1278,11 @@
         font-size: 11px;
         white-space: pre-wrap;
       }
+      @media (max-width: 420px) {
+        #${OVERLAY_ID} .pkh-picker-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     `;
     document.head.appendChild(style);
 
@@ -460,13 +1311,19 @@
           <div class="pkh-label">Attempts</div><div class="pkh-value" data-field="attempts">0</div>
           <div class="pkh-label">State</div><div class="pkh-value" data-field="state">IDLE</div>
           <div class="pkh-label">Screen</div><div class="pkh-value" data-field="screen">unknown</div>
+          <div class="pkh-label">Region</div><div class="pkh-value" data-field="region">Kanto</div>
           <div class="pkh-label">Last error</div><div class="pkh-value" data-field="error">none</div>
           <div class="pkh-label">Target</div><div class="pkh-value" data-field="target">Shiny Charmander</div>
           <div class="pkh-label">Starter</div><div class="pkh-value" data-field="starter">Magnemite</div>
         </div>
         <div class="pkh-row">
-          <label>Target <input type="text" maxlength="32" list="pkh-pokemon-options" data-setting="targetPokemon" placeholder="Charmander"></label>
-          <label>Starter <input type="text" maxlength="32" list="pkh-pokemon-options" data-setting="starterPokemon" placeholder="Magnemite"></label>
+          <label>Region <select data-setting="region">
+            ${REGIONS.map((region) => `<option value="${escapeHtml(region.key)}">${escapeHtml(region.label)}</option>`).join("")}
+          </select></label>
+        </div>
+        <div class="pkh-picker-grid">
+          ${renderPokemonPicker("targetPokemon", "Target", "Charmander")}
+          ${renderPokemonPicker("starterPokemon", "Starter", "Magnemite")}
         </div>
         <div class="pkh-row">
           <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
@@ -481,9 +1338,6 @@
         <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
         <div class="pkh-label">Escape stops immediately. Insert toggles this panel.</div>
         <div class="pkh-log" data-field="log"></div>
-        <datalist id="pkh-pokemon-options">
-          ${POKEMON_NAME_OPTIONS.map((name) => `<option value="${escapeHtml(name)}"></option>`).join("")}
-        </datalist>
       </div>
     `;
 
@@ -493,6 +1347,7 @@
       attempts: overlay.querySelector("[data-field='attempts']"),
       state: overlay.querySelector("[data-field='state']"),
       screen: overlay.querySelector("[data-field='screen']"),
+      region: overlay.querySelector("[data-field='region']"),
       error: overlay.querySelector("[data-field='error']"),
       target: overlay.querySelector("[data-field='target']"),
       starter: overlay.querySelector("[data-field='starter']"),
@@ -522,6 +1377,13 @@
       input.addEventListener("change", () => {
         if (input.type === "checkbox") {
           settings[name] = input.checked;
+        } else if (input.tagName === "SELECT") {
+          settings[name] = input.value;
+          if (name === "region") {
+            settings.region = normalizeRegionKey(settings.region);
+            resetInvalidPokemonSelectionsForRegion();
+            closePokemonMenus();
+          }
         } else if (input.type === "text") {
           settings[name] = sanitizePokemonName(input.value);
           input.value = settings[name];
@@ -529,9 +1391,11 @@
           settings[name] = Number(input.value);
         }
         persistSettings();
+        updateOpenPokemonMenus();
       });
     });
 
+    setupPokemonPickers();
     updateOverlay();
   }
 
@@ -543,6 +1407,109 @@
       .replace(/"/g, "&quot;");
   }
 
+  function renderPokemonPicker(settingName, label, placeholder) {
+    const id = `pkh-${settingName}`;
+    return `
+      <div class="pkh-picker" data-picker="${escapeHtml(settingName)}">
+        <label for="${escapeHtml(id)}">${escapeHtml(label)}</label>
+        <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
+        <div class="pkh-picker-menu" data-picker-menu role="listbox"></div>
+      </div>
+    `;
+  }
+
+  function renderPokemonOption(pokemon) {
+    const title = `${pokemon.name} - ${pokemon.types.join("/")}`;
+    return `
+      <button type="button" class="pkh-picker-option" data-picker-option="${escapeHtml(pokemon.name)}" title="${escapeHtml(title)}" role="option">
+        <img class="pkh-pokemon-sprite" src="${escapeHtml(pokemonSpriteUrl(pokemon))}" alt="" loading="lazy">
+        <span class="pkh-pokemon-name">${escapeHtml(pokemon.name)}</span>
+        <span class="pkh-type-list">${renderTypeBadges(pokemon.types)}</span>
+      </button>
+    `;
+  }
+
+  function filterPokemonOptions(query) {
+    const normalized = normalizeForCompare(query);
+    const options = getRegionPokemon(settings.region);
+    if (!normalized) return options.slice(0, 24);
+    return options
+      .filter((pokemon) => normalizeForCompare(pokemon.name).includes(normalized))
+      .slice(0, 24);
+  }
+
+  function renderPokemonMenu(picker) {
+    const input = picker.querySelector("[data-picker-input]");
+    const menu = picker.querySelector("[data-picker-menu]");
+    if (!input || !menu) return;
+
+    const options = filterPokemonOptions(input.value);
+    menu.innerHTML = options.length
+      ? options.map(renderPokemonOption).join("")
+      : `<div class="pkh-picker-empty">No Pokemon in ${escapeHtml(selectedRegion().label)} matches this filter.</div>`;
+    menu.dataset.open = "true";
+  }
+
+  function closePokemonMenus() {
+    if (!overlay) return;
+    overlay.querySelectorAll("[data-picker-menu]").forEach((menu) => {
+      menu.dataset.open = "false";
+    });
+  }
+
+  function updateOpenPokemonMenus() {
+    if (!overlay) return;
+    overlay.querySelectorAll("[data-picker]").forEach((picker) => {
+      const menu = picker.querySelector("[data-picker-menu]");
+      if (menu && menu.dataset.open === "true") renderPokemonMenu(picker);
+    });
+  }
+
+  function resetInvalidPokemonSelectionsForRegion() {
+    if (!findPokemonOption(settings.targetPokemon, settings.region)) {
+      settings.targetPokemon = defaultPokemonForRegion(settings.region, "targetPokemon");
+    }
+    if (!findPokemonOption(settings.starterPokemon, settings.region)) {
+      settings.starterPokemon = defaultPokemonForRegion(settings.region, "starterPokemon");
+    }
+  }
+
+  function setupPokemonPickers() {
+    overlay.querySelectorAll("[data-picker]").forEach((picker) => {
+      const input = picker.querySelector("[data-picker-input]");
+      if (!input) return;
+      input.addEventListener("focus", () => renderPokemonMenu(picker));
+      input.addEventListener("input", () => renderPokemonMenu(picker));
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closePokemonMenus();
+      });
+    });
+
+    overlay.addEventListener("mousedown", (event) => {
+      const option = event.target.closest("[data-picker-option]");
+      if (!option || !overlay.contains(option)) return;
+      event.preventDefault();
+      const picker = option.closest("[data-picker]");
+      const input = picker ? picker.querySelector("[data-picker-input]") : null;
+      if (!input) return;
+      input.value = option.dataset.pickerOption || "";
+      settings[input.dataset.setting] = sanitizePokemonName(input.value);
+      persistSettings();
+      closePokemonMenus();
+    });
+
+    overlay.addEventListener("error", (event) => {
+      if (event.target && event.target.matches && event.target.matches(".pkh-pokemon-sprite")) {
+        event.target.hidden = true;
+      }
+    }, true);
+
+    document.addEventListener("mousedown", (event) => {
+      if (!overlay || overlay.contains(event.target)) return;
+      closePokemonMenus();
+    });
+  }
+
   function updateOverlay() {
     if (!overlay) return;
     overlay.dataset.hidden = String(runtime.overlayHidden);
@@ -550,6 +1517,7 @@
     if (overlayFields.attempts) overlayFields.attempts.textContent = String(runtime.attempts);
     if (overlayFields.state) overlayFields.state.textContent = runtime.paused ? `${runtime.state} (paused)` : runtime.state;
     if (overlayFields.screen) overlayFields.screen.textContent = runtime.lastScreen || "unknown";
+    if (overlayFields.region) overlayFields.region.textContent = selectedRegion().label;
     if (overlayFields.error) overlayFields.error.textContent = runtime.lastError || "none";
     if (overlayFields.target) overlayFields.target.textContent = `Shiny ${settings.targetPokemon}`;
     if (overlayFields.starter) overlayFields.starter.textContent = settings.starterPokemon;
@@ -1035,7 +2003,7 @@
 
     if (screen === "title-screen") return STATES.ENTER_BATTLE_TOWER;
     if (screen === "history-region-select") return STATES.ENTER_BATTLE_TOWER;
-    if (screen === "endless-stage-select") return STATES.SELECT_KANTO;
+    if (screen === "endless-stage-select") return STATES.SELECT_REGION;
     if (screen === "starter-screen") return STATES.SELECT_STARTER;
     if (screen === "map-screen") return STATES.OPEN_FIRST_CATCH_NODE;
     if (screen === "catch-screen") return STATES.WAIT_FOR_POKEMON_CHOICES;
@@ -1562,8 +2530,8 @@
       return;
     }
 
-    if (state === STATES.SELECT_KANTO) {
-      await selectKantoState();
+    if (state === STATES.SELECT_REGION) {
+      await selectRegionState();
       return;
     }
 
@@ -1649,11 +2617,12 @@
     setState(stateForCurrentScreen(), "Battle Tower entry clicked.");
   }
 
-  async function selectKantoState() {
+  async function selectRegionState() {
+    const region = selectedRegion();
     const screen = detectCurrentScreen();
 
     if (screen === "starter-screen" || screen === "map-screen" || screen === "catch-screen") {
-      setState(stateForCurrentScreen(), "Kanto stage already appears selected.");
+      setState(stateForCurrentScreen(), `${region.label} stage already appears selected.`);
       return;
     }
     if (screen === "title-screen" || screen === "history-region-select") {
@@ -1678,20 +2647,20 @@
       }
     }
 
-    const kanto = findStageButton("Kanto");
-    if (kanto && kanto.locked) {
-      throw new Error("Kanto Battle Tower appears locked or unavailable.");
+    const regionButton = findStageButton(region.stageName);
+    if (regionButton && regionButton.locked) {
+      throw new Error(`${region.label} Battle Tower appears locked or unavailable.`);
     }
-    if (!kanto) {
-      throw new Error("Could not find the Kanto Battle Tower stage control.");
+    if (!regionButton) {
+      throw new Error(`Could not find the ${region.label} Battle Tower stage control.`);
     }
 
-    safeClick(kanto, "Kanto Battle Tower");
+    safeClick(regionButton, `${region.label} Battle Tower`);
     await waitForCondition(() => {
       const next = detectCurrentScreen();
       return next === "starter-screen" || next === "map-screen" || next === "catch-screen";
-    }, 10000, 250, "starter/map after Kanto");
-    setState(stateForCurrentScreen(), "Kanto selected.");
+    }, 10000, 250, `starter/map after ${region.label}`);
+    setState(stateForCurrentScreen(), `${region.label} selected.`);
   }
 
   async function selectStarterState() {
@@ -1834,7 +2803,7 @@
       return;
     }
     if (screen === "endless-stage-select") {
-      setState(STATES.SELECT_KANTO, "Fallback to Kanto stage selection.");
+      setState(STATES.SELECT_REGION, "Fallback to region stage selection.");
       return;
     }
 
