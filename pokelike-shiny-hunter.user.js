@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.4.0
+// @version      1.5.0
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.4.0";
+  const SCRIPT_VERSION = "1.5.0";
 
   const STATES = {
     IDLE: "IDLE",
@@ -1008,6 +1008,12 @@
     writeStorage("attempts", runtime.attempts);
   }
 
+  function resetAttemptsForNewTarget() {
+    runtime.attempts = 0;
+    persistAttempts();
+    runtime.foundMessage = "";
+  }
+
   // ---------------------------------------------------------------------------
   // Overlay UI
   // ---------------------------------------------------------------------------
@@ -1041,6 +1047,7 @@
         background: transparent;
         border: 0;
         box-shadow: none;
+        right: 28px;
       }
       #${OVERLAY_ID}[data-hidden="true"] .pkh-head,
       #${OVERLAY_ID}[data-hidden="true"] .pkh-body {
@@ -1091,6 +1098,30 @@
         display: grid;
         gap: 10px;
         padding: 12px;
+      }
+      #${OVERLAY_ID} .pkh-tabs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px;
+      }
+      #${OVERLAY_ID} .pkh-tab {
+        padding: 5px 6px;
+        border-color: #334155;
+        background: #0f172a;
+        color: #cbd5e1;
+        font-size: 12px;
+      }
+      #${OVERLAY_ID} .pkh-tab[data-active="true"] {
+        background: #1e293b;
+        border-color: #38bdf8;
+        color: #f8fafc;
+      }
+      #${OVERLAY_ID} .pkh-panel {
+        display: none;
+        gap: 10px;
+      }
+      #${OVERLAY_ID} .pkh-panel[data-active="true"] {
+        display: grid;
       }
       #${OVERLAY_ID} .pkh-row,
       #${OVERLAY_ID} .pkh-buttons {
@@ -1304,44 +1335,62 @@
       <div class="pkh-body">
         <div class="pkh-disclaimer">${escapeHtml(DISCLAIMER)}</div>
         <div class="pkh-found" data-field="found">Shiny target found!</div>
-        <div class="pkh-buttons">
-          <button type="button" data-action="start" data-kind="start">Start</button>
-          <button type="button" data-action="pause">Pause</button>
-          <button type="button" data-action="stop" data-kind="stop">Stop</button>
-          <button type="button" data-action="copylog">Copy log</button>
+        <div class="pkh-tabs" role="tablist">
+          <button type="button" class="pkh-tab" data-tab="status" data-active="true">Status</button>
+          <button type="button" class="pkh-tab" data-tab="hunt">Hunt</button>
+          <button type="button" class="pkh-tab" data-tab="settings">Settings</button>
+          <button type="button" class="pkh-tab" data-tab="debug">Debug</button>
         </div>
-        <div class="pkh-grid">
-          <div class="pkh-label">Attempts</div><div class="pkh-value" data-field="attempts">0</div>
-          <div class="pkh-label">State</div><div class="pkh-value" data-field="state">IDLE</div>
-          <div class="pkh-label">Screen</div><div class="pkh-value" data-field="screen">unknown</div>
-          <div class="pkh-label">Region</div><div class="pkh-value" data-field="region">Kanto</div>
-          <div class="pkh-label">Last error</div><div class="pkh-value" data-field="error">none</div>
-          <div class="pkh-label">Target</div><div class="pkh-value" data-field="target">Shiny Charmander</div>
-          <div class="pkh-label">Starter</div><div class="pkh-value" data-field="starter">Magnemite</div>
+        <div class="pkh-panel" data-panel="status" data-active="true">
+          <div class="pkh-buttons">
+            <button type="button" data-action="start" data-kind="start">Start</button>
+            <button type="button" data-action="pause">Pause</button>
+            <button type="button" data-action="stop" data-kind="stop">Stop</button>
+          </div>
+          <div class="pkh-grid">
+            <div class="pkh-label">Attempts</div><div class="pkh-value" data-field="attempts">0</div>
+            <div class="pkh-label">State</div><div class="pkh-value" data-field="state">IDLE</div>
+            <div class="pkh-label">Screen</div><div class="pkh-value" data-field="screen">unknown</div>
+            <div class="pkh-label">Region</div><div class="pkh-value" data-field="region">Kanto</div>
+            <div class="pkh-label">Target</div><div class="pkh-value" data-field="target">Shiny Charmander</div>
+            <div class="pkh-label">Starter</div><div class="pkh-value" data-field="starter">Magnemite</div>
+          </div>
+          <div class="pkh-log" data-field="log"></div>
         </div>
-        <div class="pkh-row">
-          <label>Region <select data-setting="region">
-            ${REGIONS.map((region) => `<option value="${escapeHtml(region.key)}">${escapeHtml(region.label)}</option>`).join("")}
-          </select></label>
+        <div class="pkh-panel" data-panel="hunt">
+          <div class="pkh-row">
+            <label>Region <select data-setting="region">
+              ${REGIONS.map((region) => `<option value="${escapeHtml(region.key)}">${escapeHtml(region.label)}</option>`).join("")}
+            </select></label>
+          </div>
+          <div class="pkh-picker-grid">
+            ${renderPokemonPicker("targetPokemon", "Target", "Charmander")}
+            ${renderPokemonPicker("starterPokemon", "Starter", "Magnemite")}
+          </div>
         </div>
-        <div class="pkh-picker-grid">
-          ${renderPokemonPicker("targetPokemon", "Target", "Charmander")}
-          ${renderPokemonPicker("starterPokemon", "Starter", "Magnemite")}
+        <div class="pkh-panel" data-panel="settings">
+          <div class="pkh-row">
+            <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
+            <label>Max delay <input type="number" min="0" step="50" data-setting="maxDelayMs"></label>
+          </div>
+          <div class="pkh-row">
+            <label>Stop after N attempts <input type="number" min="0" step="1" data-setting="stopAfterAttempts"></label>
+          </div>
+          <label><input type="checkbox" data-setting="autoCatch"> Catch shiny target automatically</label>
+          <label><input type="checkbox" data-setting="useChoiceRerolls"> Use one reroll per Pokemon slot</label>
+          <label><input type="checkbox" data-setting="stopOnAnyShiny"> Stop on any shiny</label>
+          <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
+          <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
         </div>
-        <div class="pkh-row">
-          <label>Min delay <input type="number" min="0" step="50" data-setting="minDelayMs"></label>
-          <label>Max delay <input type="number" min="0" step="50" data-setting="maxDelayMs"></label>
+        <div class="pkh-panel" data-panel="debug">
+          <div class="pkh-grid">
+            <div class="pkh-label">Last error</div><div class="pkh-value" data-field="error">none</div>
+          </div>
+          <div class="pkh-buttons">
+            <button type="button" data-action="copylog">Copy log</button>
+          </div>
+          <div class="pkh-label">Escape stops immediately. Insert toggles this panel.</div>
         </div>
-        <div class="pkh-row">
-          <label>Stop after N attempts <input type="number" min="0" step="1" data-setting="stopAfterAttempts"></label>
-        </div>
-        <label><input type="checkbox" data-setting="autoCatch"> Catch shiny target automatically</label>
-        <label><input type="checkbox" data-setting="useChoiceRerolls"> Use one reroll per Pokemon slot</label>
-        <label><input type="checkbox" data-setting="stopOnAnyShiny"> Stop on any shiny</label>
-        <label><input type="checkbox" data-setting="dryRun"> Dry run mode</label>
-        <label><input type="checkbox" data-setting="autoResume"> Auto resume after reload</label>
-        <div class="pkh-label">Escape stops immediately. Insert toggles this panel.</div>
-        <div class="pkh-log" data-field="log"></div>
       </div>
     `;
 
@@ -1360,6 +1409,12 @@
     };
 
     overlay.addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-tab]");
+      if (tab) {
+        selectOverlayTab(tab.dataset.tab);
+        return;
+      }
+
       const button = event.target.closest("button[data-action]");
       if (!button) return;
       const action = button.dataset.action;
@@ -1379,6 +1434,7 @@
         input.value = settings[name];
       }
       input.addEventListener("change", () => {
+        const previousTarget = settings.targetPokemon;
         if (input.type === "checkbox") {
           settings[name] = input.checked;
         } else if (input.tagName === "SELECT") {
@@ -1394,6 +1450,9 @@
         } else {
           settings[name] = Number(input.value);
         }
+        if (normalizeForCompare(previousTarget) !== normalizeForCompare(settings.targetPokemon)) {
+          resetAttemptsForNewTarget();
+        }
         persistSettings();
         updateOpenPokemonMenus();
       });
@@ -1401,6 +1460,17 @@
 
     setupPokemonPickers();
     updateOverlay();
+  }
+
+  function selectOverlayTab(tabName) {
+    if (!overlay) return;
+    overlay.querySelectorAll("[data-tab]").forEach((tab) => {
+      tab.dataset.active = String(tab.dataset.tab === tabName);
+    });
+    overlay.querySelectorAll("[data-panel]").forEach((panel) => {
+      panel.dataset.active = String(panel.dataset.panel === tabName);
+    });
+    closePokemonMenus();
   }
 
   function escapeHtml(value) {
@@ -1495,8 +1565,12 @@
       const picker = option.closest("[data-picker]");
       const input = picker ? picker.querySelector("[data-picker-input]") : null;
       if (!input) return;
+      const previousTarget = settings.targetPokemon;
       input.value = option.dataset.pickerOption || "";
       settings[input.dataset.setting] = sanitizePokemonName(input.value);
+      if (input.dataset.setting === "targetPokemon" && normalizeForCompare(previousTarget) !== normalizeForCompare(settings.targetPokemon)) {
+        resetAttemptsForNewTarget();
+      }
       persistSettings();
       closePokemonMenus();
     });

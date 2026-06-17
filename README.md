@@ -27,8 +27,8 @@ You should see a floating panel named `Shiny Hunter - v...`.
 ## Usage
 
 1. Open Pokelike.
-2. Click `Start` in the bot panel.
-3. Choose the Battle Tower region, target Pokemon, and starter in the bot panel.
+2. Open the `Hunt` tab and choose the Battle Tower region, target Pokemon, and starter.
+3. Click `Start` in the bot panel.
 4. The bot enters Battle Tower, selects your region, selects your starter, opens the first pokeball catch node, and checks the Pokemon choices.
 5. If enabled, the bot uses each visible per-Pokemon reroll button once, then checks the rerolled choices too.
 6. If a shiny version of your target appears, the bot stops and alerts you with the attempt count.
@@ -57,10 +57,17 @@ A Shiny! Too bad it's not <Target> :(
 - `Pause`: pauses or resumes the bot.
 - `Stop`: stops the bot.
 - `Escape`: emergency stop.
-- `Hide`: collapses the overlay to a tiny tab.
+- `Hide`: collapses the overlay to a tiny tab shifted slightly left from the game menu.
 - `bot` / `show`: restores the overlay after hiding it.
 - `Insert`: hide or show the overlay.
 - `Copy log`: copies a debug log if something breaks.
+
+The panel is split into tabs:
+
+- `Status`: run controls, current state, current hunt, and the small log.
+- `Hunt`: region, target, and starter.
+- `Settings`: delays, rerolls, stop conditions, and automation toggles.
+- `Debug`: last error and copy-log tools.
 
 ## Settings
 
@@ -79,7 +86,7 @@ The target and starter picker shows a small sprite thumbnail, the Pokemon name, 
 
 The region, target, starter, and other settings are saved in the browser under the script's own `pkCharmanderHunter_*` localStorage keys. If you prefer editing code, the default values live near the top of the userscript in `CONFIG`.
 
-When a shiny target is found, the alert says how many attempts it took. The saved attempt counter is then reset to `0` for the next hunt.
+When you change the target Pokemon, the saved attempt counter resets to `0`. When a shiny target is found, the alert says how many attempts it took. The saved attempt counter is then reset to `0` for the next hunt.
 
 ## Safety Notes
 
