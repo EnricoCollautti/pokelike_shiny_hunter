@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pokelike Shiny Hunter
 // @namespace    local.pokelike.charmander.hunter
-// @version      1.7.5
+// @version      1.7.6
 // @description  Local UI automation helper for shiny hunting in Pokelike Battle Tower
 // @match        https://pokelike.xyz/*
 // @run-at       document-idle
@@ -26,7 +26,7 @@
   const DISCLAIMER = "Use only in your own browser and respect the game creator's rules.";
   const STORAGE_PREFIX = "pkCharmanderHunter_";
   const OVERLAY_ID = "pkCharmanderHunterOverlay";
-  const SCRIPT_VERSION = "1.7.5";
+  const SCRIPT_VERSION = "1.7.6";
 
   const DEFAULT_PANEL_WIDTH = 360;
   const MIN_PANEL_WIDTH = 320;
@@ -1497,7 +1497,14 @@
         border-color: #38bdf8;
         box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.25);
       }
+      #${OVERLAY_ID} .pkh-picker-name-wrap {
+        position: relative;
+        display: block;
+        min-width: 0;
+      }
       #${OVERLAY_ID} .pkh-picker-control input[type="text"] {
+        position: relative;
+        z-index: 2;
         width: 100%;
         min-width: 0;
         border: 0;
@@ -1509,6 +1516,19 @@
         outline: 0;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+      #${OVERLAY_ID} .pkh-picker-preview-name {
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        color: rgba(148, 163, 184, 0.5);
+        font-weight: 700;
+        pointer-events: none;
       }
       #${OVERLAY_ID} .pkh-picker-menu {
         display: none;
@@ -1823,7 +1843,10 @@
         <label for="${escapeHtml(id)}">${escapeHtml(label)}</label>
         <div class="pkh-picker-control" data-picker-selected>
           <img class="pkh-pokemon-sprite" data-picker-selected-sprite alt="" loading="lazy" hidden>
-          <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
+          <span class="pkh-picker-name-wrap">
+            <input id="${escapeHtml(id)}" type="text" maxlength="32" autocomplete="off" data-setting="${escapeHtml(settingName)}" data-picker-input placeholder="${escapeHtml(placeholder)}">
+            <span class="pkh-picker-preview-name" data-picker-preview-name aria-hidden="true"></span>
+          </span>
           <span class="pkh-type-list" data-picker-selected-types></span>
         </div>
         <div class="pkh-picker-menu" data-picker-menu role="listbox"></div>
@@ -1831,14 +1854,16 @@
     `;
   }
 
-  function showPokemonInPickerPreview(picker, pokemon, syncInput = false) {
+  function showPokemonInPickerPreview(picker, pokemon, options = {}) {
     const preview = picker.querySelector("[data-picker-selected]");
     const sprite = picker.querySelector("[data-picker-selected-sprite]");
     const types = picker.querySelector("[data-picker-selected-types]");
     const input = picker.querySelector("[data-picker-input]");
+    const ghostName = picker.querySelector("[data-picker-preview-name]");
     if (!preview) return;
     const selectedName = pokemon ? pokemon.name : "";
-    if (syncInput && input) input.value = selectedName;
+    if (input && options.syncInput) input.value = selectedName;
+    if (ghostName) ghostName.textContent = options.ghostName ? selectedName : "";
     if (preview.dataset.pokemon === selectedName) return;
     if (sprite) {
       sprite.hidden = !pokemon;
@@ -1851,7 +1876,7 @@
   function updatePickerPreviewFromSetting(picker, syncInput = false) {
     const settingName = picker.dataset.picker;
     if (!settingName) return;
-    showPokemonInPickerPreview(picker, findPokemonOption(settings[settingName], settings.region), syncInput);
+    showPokemonInPickerPreview(picker, findPokemonOption(settings[settingName], settings.region), { syncInput });
   }
 
   function updateSelectedPokemonPreviews(force = false) {
@@ -1893,7 +1918,7 @@
       : `<div class="pkh-picker-empty">No Pokemon in ${escapeHtml(selectedRegion().label)} matches this filter.</div>`;
     menu.dataset.open = "true";
     if (options.length) setActivePokemonOption(picker, 0);
-    else showPokemonInPickerPreview(picker, null);
+    else showPokemonInPickerPreview(picker, null, { ghostName: true });
   }
 
   function getPickerOptions(picker) {
@@ -1904,7 +1929,7 @@
     return getPickerOptions(picker).findIndex((option) => option.dataset.active === "true");
   }
 
-  function setActivePokemonOption(picker, index, syncInput = false) {
+  function setActivePokemonOption(picker, index) {
     const options = getPickerOptions(picker);
     if (!options.length) return;
     const boundedIndex = clampNumber(index, 0, options.length - 1);
@@ -1913,7 +1938,7 @@
       option.dataset.active = String(active);
       option.setAttribute("aria-selected", String(active));
     });
-    showPokemonInPickerPreview(picker, findPokemonOption(options[boundedIndex].dataset.pickerOption, settings.region), syncInput);
+    showPokemonInPickerPreview(picker, findPokemonOption(options[boundedIndex].dataset.pickerOption, settings.region), { ghostName: true });
     options[boundedIndex].scrollIntoView({ block: "nearest" });
   }
 
@@ -1922,7 +1947,7 @@
     if (!options.length) return;
     const currentIndex = activePokemonOptionIndex(picker);
     const nextIndex = currentIndex < 0 ? 0 : currentIndex + delta;
-    setActivePokemonOption(picker, (nextIndex + options.length) % options.length, true);
+    setActivePokemonOption(picker, (nextIndex + options.length) % options.length);
   }
 
   function selectPokemonOption(option) {
@@ -1997,14 +2022,14 @@
         if (event.key === "ArrowDown") {
           if (!menuOpen) {
             renderPokemonMenu(picker);
-            setActivePokemonOption(picker, 0, true);
+            setActivePokemonOption(picker, 0);
           }
           else moveActivePokemonOption(picker, 1);
           event.preventDefault();
         } else if (event.key === "ArrowUp") {
           if (!menuOpen) {
             renderPokemonMenu(picker);
-            setActivePokemonOption(picker, 0, true);
+            setActivePokemonOption(picker, 0);
           }
           else moveActivePokemonOption(picker, -1);
           event.preventDefault();
@@ -2033,7 +2058,7 @@
       const picker = option.closest("[data-picker]");
       const options = picker ? getPickerOptions(picker) : [];
       const optionIndex = options.indexOf(option);
-      if (picker && optionIndex >= 0) setActivePokemonOption(picker, optionIndex, true);
+      if (picker && optionIndex >= 0) setActivePokemonOption(picker, optionIndex);
     });
 
     overlay.addEventListener("error", (event) => {
